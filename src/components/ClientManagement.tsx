@@ -4,27 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { ClientEditModal } from './ClientEditModal';
-
-interface SubService {
-  id: number;
-  name: string;
-  url: string;
-}
-
-interface Service {
-  id: number;
-  name: string;
-  subServices: SubService[];
-}
-
-interface Client {
-  id: number;
-  name: string;
-  logo: string;
-  services: Service[];
-}
+import { useClients } from '@/hooks/useSupabaseData';
+import type { Client } from '@/lib/supabase';
 
 const availableServiceNames = [
   'Mesa de Servicios ITSM',
@@ -38,30 +21,23 @@ const availableServiceNames = [
   'Estatus de Polizas de Servicio'
 ];
 
-interface ClientManagementProps {
-  clients: Client[];
-  setClients: (clients: Client[]) => void;
-}
-
-export function ClientManagement({ clients, setClients }: ClientManagementProps) {
-  const [newClient, setNewClient] = useState({ name: '', services: [] as string[] });
+export function ClientManagement() {
+  const [newClient, setNewClient] = useState({ name: '', domain: '', services: [] as string[] });
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const { clients, loading, addClient: addClientDB, updateClient: updateClientDB, deleteClient: deleteClientDB } = useClients();
 
-  const addClient = () => {
-    if (newClient.name) {
-      const clientServices = newClient.services.map((serviceName, index) => ({
-        id: Date.now() + index,
-        name: serviceName,
-        subServices: []
-      }));
-
-      setClients([...clients, { 
-        id: Date.now(), 
-        name: newClient.name, 
-        logo: '/placeholder.svg',
-        services: clientServices
-      }]);
-      setNewClient({ name: '', services: [] });
+  const handleAddClient = async () => {
+    if (newClient.name && newClient.domain) {
+      try {
+        await addClientDB({
+          name: newClient.name,
+          domain: newClient.domain,
+          services: newClient.services
+        });
+        setNewClient({ name: '', domain: '', services: [] });
+      } catch (error) {
+        // Error is handled in the hook
+      }
     }
   };
 
@@ -74,13 +50,21 @@ export function ClientManagement({ clients, setClients }: ClientManagementProps)
     }));
   };
 
-  const deleteClient = (clientId: number) => {
-    setClients(clients.filter(client => client.id !== clientId));
+  const handleDeleteClient = async (clientId: number) => {
+    try {
+      await deleteClientDB(clientId);
+    } catch (error) {
+      // Error is handled in the hook
+    }
   };
 
-  const updateClient = (updatedClient: Client) => {
-    setClients(clients.map(client => client.id === updatedClient.id ? updatedClient : client));
-    setEditingClient(null);
+  const handleUpdateClient = async (updatedClient: Client) => {
+    try {
+      await updateClientDB(updatedClient.id, updatedClient);
+      setEditingClient(null);
+    } catch (error) {
+      // Error is handled in the hook
+    }
   };
 
   return (
@@ -94,15 +78,27 @@ export function ClientManagement({ clients, setClients }: ClientManagementProps)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="clientName">Nombre del Cliente</Label>
-            <Input
-              id="clientName"
-              value={newClient.name}
-              onChange={(e) => setNewClient({...newClient, name: e.target.value})}
-              placeholder="Nombre de la empresa"
-              className="bg-background/50"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="clientName">Nombre del Cliente</Label>
+              <Input
+                id="clientName"
+                value={newClient.name}
+                onChange={(e) => setNewClient({...newClient, name: e.target.value})}
+                placeholder="Nombre de la empresa"
+                className="bg-background/50"
+              />
+            </div>
+            <div>
+              <Label htmlFor="clientDomain">Dominio</Label>
+              <Input
+                id="clientDomain"
+                value={newClient.domain}
+                onChange={(e) => setNewClient({...newClient, domain: e.target.value})}
+                placeholder="empresa.com"
+                className="bg-background/50"
+              />
+            </div>
           </div>
           
           <div>
@@ -127,9 +123,11 @@ export function ClientManagement({ clients, setClients }: ClientManagementProps)
           </div>
           
           <Button 
-            onClick={addClient}
+            onClick={handleAddClient}
             className="bg-gradient-secondary hover:bg-gradient-primary"
+            disabled={loading}
           >
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Agregar Cliente
           </Button>
         </CardContent>
@@ -141,8 +139,14 @@ export function ClientManagement({ clients, setClients }: ClientManagementProps)
           <CardTitle>Clientes Registrados</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {clients.map((client) => (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-mcs-blue" />
+              <span className="ml-2 text-muted-foreground">Cargando clientes...</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {clients.map((client) => (
               <div key={client.id} className="p-4 bg-background/30 rounded-lg border border-mcs-blue/20">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-3">
@@ -165,22 +169,23 @@ export function ClientManagement({ clients, setClients }: ClientManagementProps)
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => deleteClient(client.id)}
+                      onClick={() => handleDeleteClient(client.id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {client.services.map((service) => (
+                  {client.services?.map((service) => (
                     <Badge key={service.id} variant="secondary" className="bg-mcs-blue/20 text-mcs-blue">
-                      {service.name} ({service.subServices.length} subservicios)
+                      {service.name} ({service.sub_services?.length || 0} subservicios)
                     </Badge>
-                  ))}
+                  )) || <span className="text-muted-foreground text-sm">No hay servicios configurados</span>}
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -188,7 +193,7 @@ export function ClientManagement({ clients, setClients }: ClientManagementProps)
         <ClientEditModal
           client={editingClient}
           availableServiceNames={availableServiceNames}
-          onSave={updateClient}
+          onSave={handleUpdateClient}
           onClose={() => setEditingClient(null)}
         />
       )}

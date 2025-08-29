@@ -1,30 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Upload } from 'lucide-react';
-
-interface SubService {
-  id: number;
-  name: string;
-  url: string;
-}
-
-interface Service {
-  id: number;
-  name: string;
-  subServices: SubService[];
-}
-
-interface Client {
-  id: number;
-  name: string;
-  logo: string;
-  services: Service[];
-}
+import { Plus, Edit, Trash2, X, Upload } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useClients } from '@/hooks/useSupabaseData';
+import type { Client, Service, SubService } from '@/lib/supabase';
 
 interface ClientEditModalProps {
   client: Client;
@@ -34,228 +17,269 @@ interface ClientEditModalProps {
 }
 
 export function ClientEditModal({ client, availableServiceNames, onSave, onClose }: ClientEditModalProps) {
-  const [editedClient, setEditedClient] = useState<Client>(JSON.parse(JSON.stringify(client)));
+  const [editedClient, setEditedClient] = useState<Client>(client);
+  const { addService, updateService, deleteService, addSubService, updateSubService, deleteSubService } = useClients();
 
-  const handleSave = () => {
-    onSave(editedClient);
+  useEffect(() => {
+    setEditedClient(client);
+  }, [client]);
+
+  const handleAddService = async (serviceName: string) => {
+    try {
+      await addService(client.id, serviceName);
+      // The client data will be refreshed by the parent component
+      onClose(); // Close modal to refresh data
+    } catch (error) {
+      console.error('Error adding service:', error);
+    }
   };
 
-  const addService = (serviceName: string) => {
-    const newService: Service = {
-      id: Date.now(),
-      name: serviceName,
-      subServices: []
-    };
-    setEditedClient({
-      ...editedClient,
-      services: [...editedClient.services, newService]
-    });
+  const handleRemoveService = async (serviceId: number) => {
+    try {
+      await deleteService(serviceId);
+      // The client data will be refreshed by the parent component
+      onClose(); // Close modal to refresh data
+    } catch (error) {
+      console.error('Error removing service:', error);
+    }
   };
 
-  const removeService = (serviceId: number) => {
-    setEditedClient({
-      ...editedClient,
-      services: editedClient.services.filter(s => s.id !== serviceId)
-    });
+  const handleAddSubService = async (serviceId: number) => {
+    try {
+      await addSubService(serviceId, { name: 'Nuevo Subservicio', url: 'https://' });
+      // The client data will be refreshed by the parent component
+      onClose(); // Close modal to refresh data
+    } catch (error) {
+      console.error('Error adding sub-service:', error);
+    }
   };
 
-  const addSubService = (serviceId: number) => {
-    const newSubService: SubService = {
-      id: Date.now(),
-      name: '',
-      url: ''
-    };
-    setEditedClient({
-      ...editedClient,
-      services: editedClient.services.map(service =>
-        service.id === serviceId
-          ? { ...service, subServices: [...service.subServices, newSubService] }
-          : service
-      )
-    });
+  const handleUpdateSubService = async (subServiceId: number, field: 'name' | 'url', value: string) => {
+    try {
+      await updateSubService(subServiceId, { [field]: value });
+    } catch (error) {
+      console.error('Error updating sub-service:', error);
+    }
   };
 
-  const updateSubService = (serviceId: number, subServiceId: number, field: 'name' | 'url', value: string) => {
-    setEditedClient({
-      ...editedClient,
-      services: editedClient.services.map(service =>
-        service.id === serviceId
-          ? {
-              ...service,
-              subServices: service.subServices.map(sub =>
-                sub.id === subServiceId ? { ...sub, [field]: value } : sub
-              )
-            }
-          : service
-      )
-    });
+  const handleRemoveSubService = async (subServiceId: number) => {
+    try {
+      await deleteSubService(subServiceId);
+      // The client data will be refreshed by the parent component
+      onClose(); // Close modal to refresh data
+    } catch (error) {
+      console.error('Error removing sub-service:', error);
+    }
   };
 
-  const removeSubService = (serviceId: number, subServiceId: number) => {
-    setEditedClient({
-      ...editedClient,
-      services: editedClient.services.map(service =>
-        service.id === serviceId
-          ? {
-              ...service,
-              subServices: service.subServices.filter(sub => sub.id !== subServiceId)
-            }
-          : service
-      )
-    });
-  };
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        setEditedClient({ ...editedClient, logo: result });
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setEditedClient(prev => ({
+          ...prev,
+          logo: result
+        }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const availableServicesToAdd = availableServiceNames.filter(
-    serviceName => !editedClient.services.some(s => s.name === serviceName)
-  );
+  const handleSave = () => {
+    onSave(editedClient);
+  };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="bg-card/95 backdrop-blur-sm border-mcs-blue/30 max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar Cliente</DialogTitle>
+          <DialogTitle className="text-foreground">Editar Cliente</DialogTitle>
         </DialogHeader>
         <div className="space-y-6">
-          {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="editClientName">Nombre del Cliente</Label>
-              <Input
-                id="editClientName"
-                value={editedClient.name}
-                onChange={(e) => setEditedClient({...editedClient, name: e.target.value})}
-                className="bg-background/50"
-              />
-            </div>
-            <div>
-              <Label htmlFor="logoUpload">Logo del Cliente</Label>
-              <div className="flex items-center space-x-2">
-                <img 
-                  src={editedClient.logo} 
-                  alt="Client logo"
-                  className="w-10 h-10 object-contain border rounded"
-                />
-                <label htmlFor="logoUpload" className="cursor-pointer">
-                  <Button type="button" size="sm" variant="outline" className="border-mcs-blue/30">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Cambiar Logo
-                  </Button>
-                  <input
-                    id="logoUpload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    className="hidden"
+          {/* Basic Information */}
+          <Card className="bg-background/30 border-mcs-blue/20">
+            <CardHeader>
+              <CardTitle className="text-mcs-blue">Información Básica</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="clientName">Nombre del Cliente</Label>
+                  <Input
+                    id="clientName"
+                    value={editedClient.name}
+                    onChange={(e) => setEditedClient(prev => ({ ...prev, name: e.target.value }))}
+                    className="bg-background/50"
                   />
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Add Service */}
-          {availableServicesToAdd.length > 0 && (
-            <Card className="bg-background/30 border-mcs-blue/20">
-              <CardHeader>
-                <CardTitle className="text-sm">Agregar Servicio</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {availableServicesToAdd.map((serviceName) => (
-                    <Button
-                      key={serviceName}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addService(serviceName)}
-                      className="justify-start text-left border-mcs-blue/30"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {serviceName}
-                    </Button>
-                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                <div>
+                  <Label htmlFor="clientDomain">Dominio</Label>
+                  <Input
+                    id="clientDomain"
+                    value={editedClient.domain}
+                    onChange={(e) => setEditedClient(prev => ({ ...prev, domain: e.target.value }))}
+                    className="bg-background/50"
+                    placeholder="empresa.com"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="logoUpload">Logo del Cliente</Label>
+                <div className="flex items-center space-x-4 mt-2">
+                  <img 
+                    src={editedClient.logo} 
+                    alt={`${editedClient.name} logo`}
+                    className="w-16 h-16 object-contain border border-mcs-blue/30 rounded-lg p-2"
+                  />
+                  <label htmlFor="logoUpload" className="cursor-pointer">
+                    <Button type="button" variant="outline" className="border-mcs-blue/30">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Cambiar Logo
+                    </Button>
+                    <input
+                      id="logoUpload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Services */}
+          {/* Available Services to Add */}
+          <Card className="bg-background/30 border-mcs-blue/20">
+            <CardHeader>
+              <CardTitle className="text-mcs-blue">Servicios Disponibles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {availableServiceNames.map((serviceName) => {
+                  const hasService = editedClient.services?.some(service => service.name === serviceName);
+                  return (
+                    <div key={serviceName} className="flex items-center justify-between p-2 border border-mcs-blue/20 rounded">
+                      <span className="text-foreground">{serviceName}</span>
+                      {hasService ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => {
+                            const service = editedClient.services?.find(s => s.name === serviceName);
+                            if (service) handleRemoveService(service.id);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAddService(serviceName)}
+                          className="border-mcs-blue/30"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Services Configuration */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Servicios Configurados</h3>
-            {editedClient.services.map((service) => (
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-semibold text-foreground">Servicios Configurados</h4>
+            </div>
+            
+            {editedClient.services?.map((service) => (
               <Card key={service.id} className="bg-background/30 border-mcs-blue/20">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{service.name}</CardTitle>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => removeService(service.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {service.subServices.map((subService) => (
-                    <div key={subService.id} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
-                      <div className="md:col-span-2">
-                        <Label className="text-xs">Nombre del Subservicio</Label>
-                        <Input
-                          value={subService.name}
-                          onChange={(e) => updateSubService(service.id, subService.id, 'name', e.target.value)}
-                          placeholder="Nombre del subservicio"
-                          className="bg-background/50"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label className="text-xs">URL del Servicio</Label>
-                        <Input
-                          value={subService.url}
-                          onChange={(e) => updateSubService(service.id, subService.id, 'url', e.target.value)}
-                          placeholder="https://..."
-                          className="bg-background/50"
-                        />
-                      </div>
+                    <CardTitle className="text-base text-mcs-blue">{service.name}</CardTitle>
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleAddSubService(service.id)}
+                        className="border-mcs-blue/30"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Subservicio
+                      </Button>
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => removeSubService(service.id, subService.id)}
+                        onClick={() => handleRemoveService(service.id)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                  ))}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => addSubService(service.id)}
-                    className="border-mcs-blue/30"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Agregar Subservicio
-                  </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {service.sub_services?.map((subService) => (
+                    <div key={subService.id} className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 bg-card/50 rounded border border-mcs-blue/10">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Nombre del Subservicio</Label>
+                        <Input
+                          value={subService.name}
+                          onChange={(e) => handleUpdateSubService(subService.id, 'name', e.target.value)}
+                          placeholder="Nombre del subservicio"
+                          className="bg-background/50 text-sm"
+                        />
+                      </div>
+                      <div className="flex space-x-2">
+                        <div className="flex-1">
+                          <Label className="text-xs text-muted-foreground">URL del Subservicio</Label>
+                          <Input
+                            value={subService.url}
+                            onChange={(e) => handleUpdateSubService(subService.id, 'url', e.target.value)}
+                            placeholder="https://..."
+                            className="bg-background/50 text-sm"
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleRemoveSubService(subService.id)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )) || []}
+                  {(!service.sub_services || service.sub_services.length === 0) && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No hay subservicios configurados. Haz clic en "Subservicio" para agregar uno.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+            )) || <p className="text-muted-foreground">No hay servicios configurados</p>}
           </div>
 
-          <div className="flex space-x-2 pt-4">
-            <Button onClick={handleSave} className="bg-gradient-secondary hover:bg-gradient-primary">
+          {/* Action Buttons */}
+          <div className="flex space-x-2 pt-4 border-t border-mcs-blue/20">
+            <Button 
+              onClick={handleSave}
+              className="bg-gradient-secondary hover:bg-gradient-primary"
+            >
               Guardar Cambios
             </Button>
-            <Button onClick={onClose} variant="outline" className="border-mcs-blue/30">
+            <Button 
+              onClick={onClose}
+              variant="outline" 
+              className="border-mcs-blue/30"
+            >
               Cancelar
             </Button>
           </div>

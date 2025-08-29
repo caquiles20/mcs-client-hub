@@ -4,52 +4,52 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { UserEditModal } from './UserEditModal';
+import { useUsers } from '@/hooks/useSupabaseData';
+import type { User } from '@/lib/supabase';
 
-interface User {
-  id: number;
-  email: string;
-  client: string;
-  status: 'active' | 'inactive';
-}
-
-interface UserManagementProps {
-  users: User[];
-  setUsers: (users: User[]) => void;
-}
-
-export function UserManagement({ users, setUsers }: UserManagementProps) {
+export function UserManagement() {
   const [newUser, setNewUser] = useState({ email: '', password: '', client: '' });
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const { users, loading, addUser: addUserDB, updateUser: updateUserDB, deleteUser: deleteUserDB } = useUsers();
 
-  const addUser = () => {
+  const handleAddUser = async () => {
     if (newUser.email && newUser.password && newUser.client) {
-      setUsers([...users, { 
-        id: Date.now(), 
-        email: newUser.email, 
-        client: newUser.client, 
-        status: 'active' 
-      }]);
-      setNewUser({ email: '', password: '', client: '' });
+      try {
+        await addUserDB(newUser);
+        setNewUser({ email: '', password: '', client: '' });
+      } catch (error) {
+        // Error is handled in the hook
+      }
     }
   };
 
-  const toggleUserStatus = (userId: number) => {
-    setUsers(users.map(user => 
-      user.id === userId 
-        ? { ...user, status: user.status === 'active' ? 'inactive' : 'active' }
-        : user
-    ));
+  const handleToggleUserStatus = async (user: User) => {
+    try {
+      await updateUserDB(user.id, { 
+        status: user.status === 'active' ? 'inactive' : 'active' 
+      });
+    } catch (error) {
+      // Error is handled in the hook
+    }
   };
 
-  const deleteUser = (userId: number) => {
-    setUsers(users.filter(user => user.id !== userId));
+  const handleDeleteUser = async (userId: number) => {
+    try {
+      await deleteUserDB(userId);
+    } catch (error) {
+      // Error is handled in the hook
+    }
   };
 
-  const updateUser = (updatedUser: User) => {
-    setUsers(users.map(user => user.id === updatedUser.id ? updatedUser : user));
-    setEditingUser(null);
+  const handleUpdateUser = async (updatedUser: User) => {
+    try {
+      await updateUserDB(updatedUser.id, updatedUser);
+      setEditingUser(null);
+    } catch (error) {
+      // Error is handled in the hook
+    }
   };
 
   return (
@@ -98,9 +98,11 @@ export function UserManagement({ users, setUsers }: UserManagementProps) {
             </div>
           </div>
           <Button 
-            onClick={addUser}
+            onClick={handleAddUser}
             className="bg-gradient-secondary hover:bg-gradient-primary"
+            disabled={loading}
           >
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Agregar Usuario
           </Button>
         </CardContent>
@@ -112,8 +114,14 @@ export function UserManagement({ users, setUsers }: UserManagementProps) {
           <CardTitle>Usuarios Registrados</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {users.map((user) => (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-mcs-blue" />
+              <span className="ml-2 text-muted-foreground">Cargando usuarios...</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {users.map((user) => (
               <div key={user.id} className="flex items-center justify-between p-3 bg-background/30 rounded-lg border border-mcs-blue/20">
                 <div>
                   <p className="font-medium text-foreground">{user.email}</p>
@@ -133,7 +141,7 @@ export function UserManagement({ users, setUsers }: UserManagementProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => toggleUserStatus(user.id)}
+                    onClick={() => handleToggleUserStatus(user)}
                     className="border-mcs-blue/30"
                   >
                     {user.status === 'active' ? 'Desactivar' : 'Activar'}
@@ -149,21 +157,22 @@ export function UserManagement({ users, setUsers }: UserManagementProps) {
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => deleteUser(user.id)}
+                    onClick={() => handleDeleteUser(user.id)}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {editingUser && (
         <UserEditModal
           user={editingUser}
-          onSave={updateUser}
+          onSave={handleUpdateUser}
           onClose={() => setEditingUser(null)}
         />
       )}

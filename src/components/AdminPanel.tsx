@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Building, Shield, LogOut } from 'lucide-react';
@@ -9,77 +8,7 @@ interface AdminPanelProps {
   onLogout: () => void;
 }
 
-interface SubService {
-  id: number;
-  name: string;
-  url: string;
-}
-
-interface Service {
-  id: number;
-  name: string;
-  subServices: SubService[];
-}
-
-interface Client {
-  id: number;
-  name: string;
-  logo: string;
-  services: Service[];
-}
-
-interface User {
-  id: number;
-  email: string;
-  client: string;
-  status: 'active' | 'inactive';
-}
-
-const mockUsers: User[] = [
-  { id: 1, email: 'juan@empresa1.com', client: 'Empresa 1', status: 'active' },
-  { id: 2, email: 'maria@empresa2.com', client: 'Empresa 2', status: 'active' },
-];
-
-const mockClients: Client[] = [
-  { 
-    id: 1, 
-    name: 'Empresa 1', 
-    logo: '/placeholder.svg', 
-    services: [
-      {
-        id: 1,
-        name: 'Mesa de Servicios ITSM',
-        subServices: []
-      },
-      {
-        id: 2,
-        name: 'Monitoreo',
-        subServices: []
-      }
-    ]
-  },
-  { 
-    id: 2, 
-    name: 'Empresa 2', 
-    logo: '/placeholder.svg', 
-    services: [
-      {
-        id: 3,
-        name: 'Reportes de Servicio',
-        subServices: []
-      },
-      {
-        id: 4,
-        name: 'Reportes QBR',
-        subServices: []
-      }
-    ]
-  },
-];
-
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [clients, setClients] = useState<Client[]>(mockClients);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-mcs-navy via-background to-mcs-navy">
@@ -119,11 +48,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           </TabsList>
 
           <TabsContent value="users" className="space-y-6">
-            <UserManagement users={users} setUsers={setUsers} />
+            <UserManagement />
           </TabsContent>
 
           <TabsContent value="clients" className="space-y-6">
-            <ClientManagement clients={clients} setClients={setClients} />
+            <ClientManagement />
           </TabsContent>
         </Tabs>
       </div>
