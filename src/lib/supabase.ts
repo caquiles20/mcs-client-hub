@@ -1,9 +1,10 @@
+
 import { createClient } from '@supabase/supabase-js'
 
 // Using Lovable's native Supabase integration
 // The credentials are automatically provided by Lovable when Supabase is connected
 const supabaseUrl = 'https://caquiles20.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhcXVpbGVzMjAiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY4MDA3MTQwMCwiZXhwIjoxOTk1NjQ3NDAwfQ.placeholder'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiZWVvcml1Z3B1cXpxbWh2amVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MDI5NjQsImV4cCI6MjA3MjA3ODk2NH0.zcYPudjhJg1Xg1NfgZtoAnhniSz-CGgOIMAd8IFfup0'
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase configuration. Please ensure Supabase is connected to your Lovable project.')
