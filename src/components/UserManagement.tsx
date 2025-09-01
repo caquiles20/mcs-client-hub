@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { UserEditModal } from './UserEditModal';
 import { useUsers } from '@/hooks/useSupabaseData';
-import type { User } from '@/lib/supabase';
+import type { Database } from '@/integrations/supabase/types';
+
+type User = Database['public']['Tables']['users']['Row'];
 
 export function UserManagement() {
   const [newUser, setNewUser] = useState({ email: '', password: '', client: '' });

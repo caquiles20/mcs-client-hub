@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
-import { supabase, type User, type Client, type Service, type SubService } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
+
+type User = Database['public']['Tables']['users']['Row'];
+type Client = Database['public']['Tables']['clients']['Row'] & {
+  services?: Service[];
+};
+type Service = Database['public']['Tables']['services']['Row'] & {
+  sub_services?: SubService[];
+};
+type SubService = Database['public']['Tables']['sub_services']['Row'];
 
 export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);

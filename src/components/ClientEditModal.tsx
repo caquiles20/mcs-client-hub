@@ -7,12 +7,22 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, X, Upload } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useClients } from '@/hooks/useSupabaseData';
-import type { Client, Service, SubService } from '@/lib/supabase';
+import type { Database } from '@/integrations/supabase/types';
+
+type Client = Database['public']['Tables']['clients']['Row'] & {
+  services?: Array<Database['public']['Tables']['services']['Row'] & {
+    sub_services?: Database['public']['Tables']['sub_services']['Row'][];
+  }>;
+};
+type Service = Database['public']['Tables']['services']['Row'] & {
+  sub_services?: Database['public']['Tables']['sub_services']['Row'][];
+};
+type SubService = Database['public']['Tables']['sub_services']['Row'];
 
 interface ClientEditModalProps {
   client: Client;
   availableServiceNames: string[];
-  onSave: (client: Client) => void;
+  onSave: (client: Client) => Promise<void>;
   onClose: () => void;
 }
 
@@ -87,8 +97,8 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
     }
   };
 
-  const handleSave = () => {
-    onSave(editedClient);
+  const handleSave = async () => {
+    await onSave(editedClient);
   };
 
   return (
@@ -130,7 +140,7 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
                 <Label htmlFor="logoUpload">Logo del Cliente</Label>
                 <div className="flex items-center space-x-4 mt-2">
                   <img 
-                    src={editedClient.logo} 
+                    src={editedClient.logo || '/placeholder.svg'} 
                     alt={`${editedClient.name} logo`}
                     className="w-16 h-16 object-contain border border-mcs-blue/30 rounded-lg p-2"
                   />

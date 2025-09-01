@@ -7,7 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { ClientEditModal } from './ClientEditModal';
 import { useClients } from '@/hooks/useSupabaseData';
-import type { Client } from '@/lib/supabase';
+import type { Database } from '@/integrations/supabase/types';
+
+type Client = Database['public']['Tables']['clients']['Row'] & {
+  services?: Array<Database['public']['Tables']['services']['Row'] & {
+    sub_services?: Database['public']['Tables']['sub_services']['Row'][];
+  }>;
+};
 
 const availableServiceNames = [
   'Mesa de Servicios ITSM',

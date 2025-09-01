@@ -4,17 +4,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { Database } from '@/integrations/supabase/types';
 
-interface User {
-  id: number;
-  email: string;
-  client: string;
-  status: 'active' | 'inactive';
-}
+type User = Database['public']['Tables']['users']['Row'];
 
 interface UserEditModalProps {
   user: User;
-  onSave: (user: User) => void;
+  onSave: (user: User) => Promise<void>;
   onClose: () => void;
 }
 
@@ -22,8 +18,8 @@ export function UserEditModal({ user, onSave, onClose }: UserEditModalProps) {
   const [editedUser, setEditedUser] = useState(user);
   const [newPassword, setNewPassword] = useState('');
 
-  const handleSave = () => {
-    onSave(editedUser);
+  const handleSave = async () => {
+    await onSave(editedUser);
   };
 
   return (
@@ -66,8 +62,8 @@ export function UserEditModal({ user, onSave, onClose }: UserEditModalProps) {
           <div>
             <Label htmlFor="editStatus">Estado</Label>
             <Select
-              value={editedUser.status}
-              onValueChange={(value: 'active' | 'inactive') => 
+              value={editedUser.status || 'active'}
+              onValueChange={(value: string) => 
                 setEditedUser({...editedUser, status: value})
               }
             >
