@@ -4,6 +4,7 @@ import AdminPanel from '@/components/AdminPanel';
 import ClientPortal from '@/components/ClientPortal';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 type UserType = 'guest' | 'admin' | 'client';
 
@@ -35,48 +36,81 @@ const Index = () => {
     }
   };
 
-  const handleLogin = (email: string, password: string) => {
-    // Admin login
-    if (email === 'admin@mcs.com.mx' && password === 'MCSadmin2025$') {
-      setCurrentUser({
-        email,
-        type: 'admin'
-      });
-      toast({
-        title: "Acceso autorizado",
-        description: "Bienvenido al panel de administración",
-      });
-      return;
-    }
-
-    // Client login - extract domain from email
-    const domain = email.split('@')[1];
-    const clientData = mockClientData[domain];
-
-    if (clientData) {
-      // Simulate password validation - in real app this would be checked against database
-      if (password.length >= 6) { // Simple validation for demo
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      // Admin login
+      if (email === 'admin@mcs.com.mx' && password === 'MCSadmin2025$') {
         setCurrentUser({
           email,
-          type: 'client',
-          clientName: clientData.name,
-          availableServices: clientData.services
+          type: 'admin'
         });
         toast({
           title: "Acceso autorizado",
-          description: `Bienvenido ${clientData.name}`,
+          description: "Bienvenido al panel de administración",
         });
-      } else {
+        return;
+      }
+
+      // Client login - check database
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .eq('password_hash', password) // In production, use proper password hashing
+        .eq('status', 'active')
+        .single();
+
+      if (error || !user) {
         toast({
-          title: "Error de autenticación",
-          description: "Credenciales incorrectas",
+          title: "Error de acceso",
+          description: "Credenciales incorrectas o usuario inactivo",
           variant: "destructive"
         });
+        return;
       }
-    } else {
+
+      // Get client data
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select(`
+          name,
+          domain,
+          services(
+            name,
+            sub_services(name, url)
+          )
+        `)
+        .eq('name', user.client)
+        .single();
+
+      if (clientError || !clientData) {
+        toast({
+          title: "Error de acceso",
+          description: "No se encontró información del cliente",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const availableServices = clientData.services?.map(service => service.name) || [];
+
+      setCurrentUser({
+        email,
+        type: 'client',
+        clientName: clientData.name,
+        availableServices
+      });
+
       toast({
-        title: "Error de acceso",
-        description: "Dominio no registrado o credenciales incorrectas",
+        title: "Acceso autorizado",
+        description: `Bienvenido ${clientData.name}`,
+      });
+
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Error de conexión",
+        description: "No se pudo conectar con el servidor",
         variant: "destructive"
       });
     }
