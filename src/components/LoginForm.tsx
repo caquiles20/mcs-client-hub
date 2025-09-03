@@ -43,7 +43,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             <img 
               src={mcsLogo} 
               alt="MCS Logo" 
-              className="w-32 h-16 object-contain mx-auto shadow-glow"
+              className="w-32 h-16 object-contain mx-auto filter brightness-0 invert"
             />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Portal de Servicios MCS</h1>
