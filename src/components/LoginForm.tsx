@@ -39,11 +39,11 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       <div className="relative z-10 w-full max-w-md px-4">
         {/* Logo Area */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-primary rounded-full mb-6 shadow-glow p-2">
+          <div className="mb-6">
             <img 
               src={mcsLogo} 
               alt="MCS Logo" 
-              className="w-full h-full object-contain"
+              className="w-32 h-16 object-contain mx-auto shadow-glow"
             />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Portal de Servicios MCS</h1>
