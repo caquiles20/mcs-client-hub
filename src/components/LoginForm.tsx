@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Shield, Lock, Mail } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import nocBackground from '@/assets/noc-background.jpg';
+import mcsLogo from '/lovable-uploads/6fbccbf8-4cf5-4c31-b2b1-ee9a49d156e7.png';
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => void;
@@ -38,8 +39,12 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       <div className="relative z-10 w-full max-w-md px-4">
         {/* Logo Area */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-primary rounded-full mb-6 shadow-glow">
-            <Shield className="w-10 h-10 text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-primary rounded-full mb-6 shadow-glow p-2">
+            <img 
+              src={mcsLogo} 
+              alt="MCS Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Portal de Servicios MCS</h1>
           <p className="text-mcs-cyan">Centro de Operaciones de Red NOC</p>
