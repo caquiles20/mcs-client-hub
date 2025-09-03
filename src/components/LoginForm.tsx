@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Lock, Mail } from 'lucide-react';
 import nocBackground from '@/assets/noc-background.jpg';
-import mcsLogo from '/lovable-uploads/a1fda474-f3e8-4bc6-b30e-5fd68fecedc2.png';
+import mcsLogo from '/lovable-uploads/36a85b8d-e361-4aa2-9cc0-f56886f418bd.png';
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => void;
@@ -43,7 +43,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             <img 
               src={mcsLogo} 
               alt="MCS Logo" 
-              className="w-32 h-16 object-contain mx-auto filter brightness-0 invert"
+              className="w-40 h-20 object-contain mx-auto"
             />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Portal de Servicios MCS</h1>
