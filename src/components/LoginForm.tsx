@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Lock, Mail } from 'lucide-react';
 import nocBackground from '@/assets/noc-background.jpg';
-import mcsLogo from '/lovable-uploads/36a85b8d-e361-4aa2-9cc0-f56886f418bd.png';
+import mcsLogo from '/lovable-uploads/246f1c9b-df18-4ddc-b0c3-810e5a3b8738.png';
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => void;
