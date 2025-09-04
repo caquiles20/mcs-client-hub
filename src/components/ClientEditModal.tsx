@@ -151,11 +151,7 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
                     alt={`${editedClient.name} logo`}
                     className="w-16 h-16 object-contain border border-mcs-blue/30 rounded-lg p-2"
                   />
-                  <label htmlFor="logoUpload" className="cursor-pointer">
-                    <Button type="button" variant="outline" className="border-mcs-blue/30">
-                      <Upload className="w-4 h-4 mr-2" />
-                      Cambiar Logo
-                    </Button>
+                  <div>
                     <input
                       id="logoUpload"
                       type="file"
@@ -163,7 +159,16 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
                       onChange={handleLogoUpload}
                       className="hidden"
                     />
-                  </label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="border-mcs-blue/30"
+                      onClick={() => document.getElementById('logoUpload')?.click()}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Cambiar Logo
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
