@@ -18,6 +18,7 @@ import nocBackground from '@/assets/noc-background.jpg';
 
 interface ClientPortalProps {
   clientName: string;
+  clientLogo?: string;
   clientEmail: string;
   availableServices: string[];
   onLogout: () => void;
@@ -50,6 +51,7 @@ const serviceDescriptions: { [key: string]: string } = {
 
 export default function ClientPortal({ 
   clientName, 
+  clientLogo,
   clientEmail, 
   availableServices, 
   onLogout,
@@ -74,9 +76,19 @@ export default function ClientPortal({
         <header className="bg-card/80 backdrop-blur-sm border-b border-mcs-blue/30 shadow-card">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center shadow-glow">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
+              {clientLogo ? (
+                <div className="w-12 h-12 rounded-full overflow-hidden shadow-glow border-2 border-mcs-blue/30">
+                  <img 
+                    src={clientLogo} 
+                    alt={`${clientName} logo`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center shadow-glow">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+              )}
               <div>
                 <h1 className="text-xl font-bold text-foreground">{clientName}</h1>
                 <p className="text-mcs-cyan text-sm">Portal de Servicios NOC/SOC</p>

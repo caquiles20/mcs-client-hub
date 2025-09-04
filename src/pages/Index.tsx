@@ -12,6 +12,7 @@ interface User {
   email: string;
   type: UserType;
   clientName?: string;
+  clientLogo?: string;
   availableServices?: string[];
 }
 
@@ -75,6 +76,7 @@ const Index = () => {
         .select(`
           name,
           domain,
+          logo,
           services(
             name,
             sub_services(name, url)
@@ -98,6 +100,7 @@ const Index = () => {
         email,
         type: 'client',
         clientName: clientData.name,
+        clientLogo: clientData.logo,
         availableServices
       });
 
@@ -143,6 +146,7 @@ const Index = () => {
       <>
         <ClientPortal
           clientName={currentUser.clientName!}
+          clientLogo={currentUser.clientLogo}
           clientEmail={currentUser.email}
           availableServices={currentUser.availableServices!}
           onLogout={handleLogout}
