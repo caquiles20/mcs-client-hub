@@ -85,27 +85,29 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Create a temporary URL for preview
-      const imageUrl = URL.createObjectURL(file);
-      
-      // Create FormData to simulate file upload (in a real app, you'd upload to server)
-      const formData = new FormData();
-      formData.append('logo', file);
-      
-      // For now, we'll use the object URL for preview
-      // In a production app, you'd upload to your server/storage and get back a URL
-      setEditedClient(prev => ({
-        ...prev,
-        logo: imageUrl
-      }));
-      
-      // Clean up the object URL when component unmounts
-      // You might want to store this in a ref to clean up properly
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setEditedClient(prev => ({
+          ...prev,
+          logo: result
+        }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const handleSave = async () => {
-    await onSave(editedClient);
+    // Only pass the actual client fields (exclude services array)
+    const clientData = {
+      id: editedClient.id,
+      name: editedClient.name,
+      domain: editedClient.domain,
+      logo: editedClient.logo,
+      created_at: editedClient.created_at,
+      updated_at: editedClient.updated_at
+    };
+    await onSave(clientData);
   };
 
   return (
