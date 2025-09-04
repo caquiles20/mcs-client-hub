@@ -189,10 +189,10 @@ export default function ClientPortal({
               <CardContent className="p-6 text-center">
                 <div className="flex items-center justify-center space-x-2 mb-2">
                   <Shield className="w-5 h-5 text-mcs-blue" />
-                  <span className="text-foreground font-semibold">MCS Technology Solutions</span>
+                  <span className="text-foreground font-semibold">MCS Network Solution</span>
                 </div>
                 <p className="text-muted-foreground text-sm">
-                  Centro de Operaciones de Red (NOC) y Centro de Operaciones de Seguridad (SOC)
+                  Centro de Operaciones de Red (NOC)
                 </p>
                 <p className="text-mcs-cyan text-xs mt-2">
                   Portal seguro - Conexión cifrada SSL/TLS
