@@ -28,11 +28,20 @@ interface ClientEditModalProps {
 
 export function ClientEditModal({ client, availableServiceNames, onSave, onClose }: ClientEditModalProps) {
   const [editedClient, setEditedClient] = useState<Client>(client);
-  const { addService, updateService, deleteService, addSubService, updateSubService, deleteSubService } = useClients();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { clients, addService, updateService, deleteService, addSubService, updateSubService, deleteSubService } = useClients();
 
   useEffect(() => {
     setEditedClient(client);
   }, [client]);
+
+  // Update editedClient when clients data changes
+  useEffect(() => {
+    const updatedClient = clients.find(c => c.id === client.id);
+    if (updatedClient && !isRefreshing) {
+      setEditedClient(updatedClient);
+    }
+  }, [clients, client.id, isRefreshing]);
 
   const handleAddService = async (serviceName: string) => {
     try {
@@ -56,11 +65,15 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
 
   const handleAddSubService = async (serviceId: number) => {
     try {
+      setIsRefreshing(true);
       await addSubService(serviceId, { name: 'Nuevo Subservicio', url: 'https://' });
-      // The client data will be refreshed by the parent component
-      onClose(); // Close modal to refresh data
+      // Wait a moment for the data to refresh
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 500);
     } catch (error) {
       console.error('Error adding sub-service:', error);
+      setIsRefreshing(false);
     }
   };
 
@@ -74,11 +87,15 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
 
   const handleRemoveSubService = async (subServiceId: number) => {
     try {
+      setIsRefreshing(true);
       await deleteSubService(subServiceId);
-      // The client data will be refreshed by the parent component
-      onClose(); // Close modal to refresh data
+      // Wait a moment for the data to refresh
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 500);
     } catch (error) {
       console.error('Error removing sub-service:', error);
+      setIsRefreshing(false);
     }
   };
 
