@@ -1,6 +1,14 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   Shield, 
   BarChart3, 
@@ -12,7 +20,8 @@ import {
   FileText, 
   Database,
   LogOut,
-  User
+  User,
+  ExternalLink
 } from 'lucide-react';
 import nocBackground from '@/assets/noc-background.jpg';
 
@@ -67,6 +76,8 @@ export default function ClientPortal({
   onLogout,
   onChangePassword 
 }: ClientPortalProps) {
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [isSubServicesDialogOpen, setIsSubServicesDialogOpen] = useState(false);
   
   const handleServiceClick = (service: Service) => {
     if (!service.sub_services || service.sub_services.length === 0) {
@@ -80,19 +91,14 @@ export default function ClientPortal({
       return;
     }
 
-    // If there are multiple subservices, show options
-    const subServiceList = service.sub_services
-      .map((sub, index) => `${index + 1}. ${sub.name}`)
-      .join('\n');
-    
-    const choice = prompt(`Selecciona un subservicio de ${service.name}:\n\n${subServiceList}\n\nIngresa el número:`);
-    
-    if (choice) {
-      const index = parseInt(choice) - 1;
-      if (index >= 0 && index < service.sub_services.length) {
-        window.open(service.sub_services[index].url, '_blank');
-      }
-    }
+    // If there are multiple subservices, show dialog
+    setSelectedService(service);
+    setIsSubServicesDialogOpen(true);
+  };
+
+  const handleSubServiceClick = (url: string) => {
+    window.open(url, '_blank');
+    setIsSubServicesDialogOpen(false);
   };
 
   return (
@@ -205,13 +211,6 @@ export default function ClientPortal({
                     <p className="text-muted-foreground text-sm mb-4">
                       {description}
                     </p>
-                    {hasSubServices && (
-                      <div className="mb-3 text-xs text-mcs-cyan">
-                        {service.sub_services.map(sub => (
-                          <div key={sub.name}>• {sub.name}</div>
-                        ))}
-                      </div>
-                    )}
                     <Button 
                       className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300"
                       size="sm"
@@ -243,6 +242,32 @@ export default function ClientPortal({
           </div>
         </main>
       </div>
+
+      {/* Subservices Dialog */}
+      <Dialog open={isSubServicesDialogOpen} onOpenChange={setIsSubServicesDialogOpen}>
+        <DialogContent className="bg-card border-mcs-blue/30">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              {selectedService?.name}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Selecciona el subservicio al que deseas acceder
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 mt-4">
+            {selectedService?.sub_services?.map((subService) => (
+              <Button
+                key={subService.name}
+                onClick={() => handleSubServiceClick(subService.url)}
+                className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300 justify-between"
+              >
+                <span>{subService.name}</span>
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
