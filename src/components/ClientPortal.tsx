@@ -16,11 +16,21 @@ import {
 } from 'lucide-react';
 import nocBackground from '@/assets/noc-background.jpg';
 
+interface SubService {
+  name: string;
+  url: string;
+}
+
+interface Service {
+  name: string;
+  sub_services?: SubService[];
+}
+
 interface ClientPortalProps {
   clientName: string;
   clientLogo?: string;
   clientEmail: string;
-  availableServices: string[];
+  availableServices: Service[];
   onLogout: () => void;
   onChangePassword: () => void;
 }
@@ -58,8 +68,31 @@ export default function ClientPortal({
   onChangePassword 
 }: ClientPortalProps) {
   
-  const handleServiceClick = (service: string) => {
-    alert(`Accediendo a: ${service}\n\nEsta funcionalidad estará disponible una vez que se conecte la base de datos.`);
+  const handleServiceClick = (service: Service) => {
+    if (!service.sub_services || service.sub_services.length === 0) {
+      alert(`Accediendo a: ${service.name}\n\nEsta funcionalidad estará disponible una vez que se conecte la base de datos.`);
+      return;
+    }
+
+    // If there's only one subservice, redirect directly
+    if (service.sub_services.length === 1) {
+      window.open(service.sub_services[0].url, '_blank');
+      return;
+    }
+
+    // If there are multiple subservices, show options
+    const subServiceList = service.sub_services
+      .map((sub, index) => `${index + 1}. ${sub.name}`)
+      .join('\n');
+    
+    const choice = prompt(`Selecciona un subservicio de ${service.name}:\n\n${subServiceList}\n\nIngresa el número:`);
+    
+    if (choice) {
+      const index = parseInt(choice) - 1;
+      if (index >= 0 && index < service.sub_services.length) {
+        window.open(service.sub_services[index].url, '_blank');
+      }
+    }
   };
 
   return (
@@ -142,12 +175,13 @@ export default function ClientPortal({
           {/* Services Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {availableServices.map((service) => {
-              const Icon = serviceIcons[service] || Settings;
-              const description = serviceDescriptions[service] || 'Servicio disponible';
+              const Icon = serviceIcons[service.name] || Settings;
+              const description = serviceDescriptions[service.name] || 'Servicio disponible';
+              const hasSubServices = service.sub_services && service.sub_services.length > 0;
               
               return (
                 <Card 
-                  key={service} 
+                  key={service.name} 
                   className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-card hover:shadow-glow transition-all duration-300 cursor-pointer group"
                   onClick={() => handleServiceClick(service)}
                 >
@@ -160,17 +194,24 @@ export default function ClientPortal({
                         variant="secondary" 
                         className="bg-mcs-teal/20 text-mcs-teal border-mcs-teal/30"
                       >
-                        Activo
+                        {hasSubServices ? `${service.sub_services.length} subservicio${service.sub_services.length > 1 ? 's' : ''}` : 'Activo'}
                       </Badge>
                     </div>
                     <CardTitle className="text-lg text-foreground group-hover:text-mcs-cyan transition-colors">
-                      {service}
+                      {service.name}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-muted-foreground text-sm mb-4">
                       {description}
                     </p>
+                    {hasSubServices && (
+                      <div className="mb-3 text-xs text-mcs-cyan">
+                        {service.sub_services.map(sub => (
+                          <div key={sub.name}>• {sub.name}</div>
+                        ))}
+                      </div>
+                    )}
                     <Button 
                       className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300"
                       size="sm"

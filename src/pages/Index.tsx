@@ -8,12 +8,17 @@ import { supabase } from '@/integrations/supabase/client';
 
 type UserType = 'guest' | 'admin' | 'client';
 
+interface ServiceWithSubServices {
+  name: string;
+  sub_services?: { name: string; url: string }[];
+}
+
 interface User {
   email: string;
   type: UserType;
   clientName?: string;
   clientLogo?: string;
-  availableServices?: string[];
+  availableServices?: ServiceWithSubServices[];
 }
 
 const Index = () => {
@@ -94,7 +99,7 @@ const Index = () => {
         return;
       }
 
-      const availableServices = clientData.services?.map(service => service.name) || [];
+      const availableServices = clientData.services || [];
 
       setCurrentUser({
         email,
