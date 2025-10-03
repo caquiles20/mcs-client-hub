@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { UserEditModal } from './UserEditModal';
 import { useUsers } from '@/hooks/useSupabaseData';
+import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 type User = Database['public']['Tables']['users']['Row'];
@@ -15,6 +16,8 @@ export function UserManagement() {
   const [newUser, setNewUser] = useState({ email: '', password: '', client: '' });
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { users, loading, addUser: addUserDB, updateUser: updateUserDB, deleteUser: deleteUserDB } = useUsers();
+  const { toast } = useToast();
+  const isFormValid = newUser.email.trim() !== '' && newUser.password.trim() !== '' && newUser.client.trim() !== '';
 
   const handleAddUser = async () => {
     console.log('handleAddUser called', newUser);
@@ -111,9 +114,19 @@ export function UserManagement() {
             </div>
           </div>
           <Button 
-            onClick={handleAddUser}
+            onClick={() => {
+              if (isFormValid) {
+                handleAddUser();
+              } else {
+                toast({
+                  title: 'Faltan datos',
+                  description: 'Completa correo, contraseña y cliente',
+                  variant: 'destructive'
+                });
+              }
+            }}
             className="bg-gradient-secondary hover:bg-gradient-primary"
-            disabled={loading}
+            disabled={loading || !isFormValid}
           >
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Agregar Usuario
