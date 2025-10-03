@@ -17,13 +17,24 @@ export function UserManagement() {
   const { users, loading, addUser: addUserDB, updateUser: updateUserDB, deleteUser: deleteUserDB } = useUsers();
 
   const handleAddUser = async () => {
-    if (newUser.email && newUser.password && newUser.client) {
-      try {
-        await addUserDB(newUser);
-        setNewUser({ email: '', password: '', client: '' });
-      } catch (error) {
-        // Error is handled in the hook
-      }
+    console.log('handleAddUser called', newUser);
+    
+    if (!newUser.email || !newUser.password || !newUser.client) {
+      console.log('Validation failed:', { 
+        hasEmail: !!newUser.email, 
+        hasPassword: !!newUser.password, 
+        hasClient: !!newUser.client 
+      });
+      return;
+    }
+    
+    try {
+      console.log('Calling addUserDB...');
+      await addUserDB(newUser);
+      setNewUser({ email: '', password: '', client: '' });
+      console.log('User added successfully');
+    } catch (error) {
+      console.error('Error in handleAddUser:', error);
     }
   };
 
