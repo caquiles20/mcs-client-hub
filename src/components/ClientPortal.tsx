@@ -130,7 +130,7 @@ export default function ClientPortal({
               )}
               <div>
                 <h1 className="text-xl font-bold text-foreground">{clientName}</h1>
-                <p className="text-mcs-cyan text-sm">Portal de Servicios NOC/SOC</p>
+                <p className="text-mcs-cyan text-sm">Portal de Servicios NOC</p>
               </div>
             </div>
             
@@ -171,7 +171,7 @@ export default function ClientPortal({
                     Bienvenido al Portal de Servicios
                   </h2>
                   <p className="text-mcs-cyan">
-                    Accede a todos los servicios de NOC/SOC disponibles para tu organización
+                    Accede a todos los servicios de NOC disponibles para tu organización
                   </p>
                 </div>
               </CardContent>
