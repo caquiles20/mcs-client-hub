@@ -39,6 +39,7 @@ export function useUsers() {
   };
 
   const addUser = async (userData: { email: string; password: string; client: string }) => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('users')
@@ -67,6 +68,8 @@ export function useUsers() {
         variant: "destructive"
       });
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
