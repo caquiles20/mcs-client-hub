@@ -81,6 +81,7 @@ export default function ClientPortal({
   const [isSubServicesDialogOpen, setIsSubServicesDialogOpen] = useState(false);
   const [activeServiceUrl, setActiveServiceUrl] = useState<string | null>(null);
   const [activeServiceName, setActiveServiceName] = useState<string>('');
+  const [iframeError, setIframeError] = useState(false);
   
   const handleServiceClick = (service: Service) => {
     if (!service.sub_services || service.sub_services.length === 0) {
@@ -109,6 +110,13 @@ export default function ClientPortal({
   const handleBackToServices = () => {
     setActiveServiceUrl(null);
     setActiveServiceName('');
+    setIframeError(false);
+  };
+
+  const handleOpenInNewWindow = () => {
+    if (activeServiceUrl) {
+      window.open(activeServiceUrl, '_blank');
+    }
   };
 
   return (
@@ -189,12 +197,33 @@ export default function ClientPortal({
               
               <Card className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-card overflow-hidden">
                 <CardContent className="p-0">
-                  <iframe
-                    src={activeServiceUrl}
-                    className="w-full h-[calc(100vh-200px)] border-0"
-                    title={activeServiceName}
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-                  />
+                  {iframeError ? (
+                    <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] p-8 text-center">
+                      <Shield className="w-16 h-16 text-mcs-blue mb-4" />
+                      <h3 className="text-xl font-bold text-foreground mb-2">
+                        No se puede mostrar este contenido
+                      </h3>
+                      <p className="text-muted-foreground mb-6 max-w-md">
+                        Este sitio no permite ser mostrado dentro de un iframe por razones de seguridad. 
+                        Puedes abrirlo en una nueva ventana para acceder al servicio.
+                      </p>
+                      <Button 
+                        onClick={handleOpenInNewWindow}
+                        className="bg-gradient-secondary hover:bg-gradient-primary"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Abrir en Nueva Ventana
+                      </Button>
+                    </div>
+                  ) : (
+                    <iframe
+                      src={activeServiceUrl}
+                      className="w-full h-[calc(100vh-200px)] border-0"
+                      title={activeServiceName}
+                      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                      onError={() => setIframeError(true)}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </div>
