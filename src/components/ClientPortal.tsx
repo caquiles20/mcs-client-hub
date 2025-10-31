@@ -21,7 +21,8 @@ import {
   Database,
   LogOut,
   User,
-  ExternalLink
+  ExternalLink,
+  ArrowLeft
 } from 'lucide-react';
 import nocBackground from '@/assets/noc-background.jpg';
 
@@ -78,6 +79,8 @@ export default function ClientPortal({
 }: ClientPortalProps) {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isSubServicesDialogOpen, setIsSubServicesDialogOpen] = useState(false);
+  const [activeServiceUrl, setActiveServiceUrl] = useState<string | null>(null);
+  const [activeServiceName, setActiveServiceName] = useState<string>('');
   
   const handleServiceClick = (service: Service) => {
     if (!service.sub_services || service.sub_services.length === 0) {
@@ -85,9 +88,10 @@ export default function ClientPortal({
       return;
     }
 
-    // If there's only one subservice, redirect directly
+    // If there's only one subservice, open it directly in iframe
     if (service.sub_services.length === 1) {
-      window.open(service.sub_services[0].url, '_blank');
+      setActiveServiceUrl(service.sub_services[0].url);
+      setActiveServiceName(`${service.name} - ${service.sub_services[0].name}`);
       return;
     }
 
@@ -96,9 +100,15 @@ export default function ClientPortal({
     setIsSubServicesDialogOpen(true);
   };
 
-  const handleSubServiceClick = (url: string) => {
-    window.open(url, '_blank');
+  const handleSubServiceClick = (url: string, subServiceName: string) => {
+    setActiveServiceUrl(url);
+    setActiveServiceName(`${selectedService?.name} - ${subServiceName}`);
     setIsSubServicesDialogOpen(false);
+  };
+
+  const handleBackToServices = () => {
+    setActiveServiceUrl(null);
+    setActiveServiceName('');
   };
 
   return (
@@ -162,84 +172,115 @@ export default function ClientPortal({
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <Card className="bg-gradient-secondary/20 backdrop-blur-sm border-mcs-teal/30 shadow-card">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-white mb-2">
-                    Bienvenido al Portal de Servicios
-                  </h2>
-                  <p className="text-mcs-cyan">
-                    Accede a todos los servicios de NOC disponibles para tu organización
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Services Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {availableServices.map((service) => {
-              const Icon = serviceIcons[service.name] || Settings;
-              const description = serviceDescriptions[service.name] || 'Servicio disponible';
-              const hasSubServices = service.sub_services && service.sub_services.length > 0;
-              
-              return (
-                <Card 
-                  key={service.name} 
-                  className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-card hover:shadow-glow transition-all duration-300 cursor-pointer group"
-                  onClick={() => handleServiceClick(service)}
+          {activeServiceUrl ? (
+            // Service View with iframe
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <Button
+                  onClick={handleBackToServices}
+                  variant="outline"
+                  className="border-mcs-blue/30 hover:bg-mcs-blue/10"
                 >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="w-12 h-12 bg-gradient-secondary rounded-lg flex items-center justify-center group-hover:bg-gradient-primary transition-all duration-300">
-                        <Icon className="w-6 h-6 text-white" />
-                      </div>
-                      <Badge 
-                        variant="secondary" 
-                        className="bg-mcs-teal/20 text-mcs-teal border-mcs-teal/30"
-                      >
-                        {hasSubServices ? `${service.sub_services.length} subservicio${service.sub_services.length > 1 ? 's' : ''}` : 'Activo'}
-                      </Badge>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Regresar a Servicios
+                </Button>
+                <h2 className="text-xl font-bold text-foreground">{activeServiceName}</h2>
+              </div>
+              
+              <Card className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-card overflow-hidden">
+                <CardContent className="p-0">
+                  <iframe
+                    src={activeServiceUrl}
+                    className="w-full h-[calc(100vh-200px)] border-0"
+                    title={activeServiceName}
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            // Services List View
+            <>
+              {/* Welcome Section */}
+              <div className="mb-8">
+                <Card className="bg-gradient-secondary/20 backdrop-blur-sm border-mcs-teal/30 shadow-card">
+                  <CardContent className="p-6">
+                    <div className="text-center">
+                      <h2 className="text-2xl font-bold text-white mb-2">
+                        Bienvenido al Portal de Servicios
+                      </h2>
+                      <p className="text-mcs-cyan">
+                        Accede a todos los servicios de NOC disponibles para tu organización
+                      </p>
                     </div>
-                    <CardTitle className="text-lg text-foreground group-hover:text-mcs-cyan transition-colors">
-                      {service.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground text-sm mb-4">
-                      {description}
-                    </p>
-                    <Button 
-                      className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300"
-                      size="sm"
-                    >
-                      Acceder al Servicio
-                    </Button>
                   </CardContent>
                 </Card>
-              );
-            })}
-          </div>
+              </div>
 
-          {/* Footer Info */}
-          <div className="mt-12">
-            <Card className="bg-card/60 backdrop-blur-sm border-mcs-blue/20">
-              <CardContent className="p-6 text-center">
-                <div className="flex items-center justify-center space-x-2 mb-2">
-                  <Shield className="w-5 h-5 text-mcs-blue" />
-                  <span className="text-foreground font-semibold">MCS Network Solution</span>
-                </div>
-                <p className="text-muted-foreground text-sm">
-                  Centro de Operaciones de Red (NOC)
-                </p>
-                <p className="text-mcs-cyan text-xs mt-2">
-                  Portal seguro - Conexión cifrada SSL/TLS
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+              {/* Services Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {availableServices.map((service) => {
+                  const Icon = serviceIcons[service.name] || Settings;
+                  const description = serviceDescriptions[service.name] || 'Servicio disponible';
+                  const hasSubServices = service.sub_services && service.sub_services.length > 0;
+                  
+                  return (
+                    <Card 
+                      key={service.name} 
+                      className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-card hover:shadow-glow transition-all duration-300 cursor-pointer group"
+                      onClick={() => handleServiceClick(service)}
+                    >
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                          <div className="w-12 h-12 bg-gradient-secondary rounded-lg flex items-center justify-center group-hover:bg-gradient-primary transition-all duration-300">
+                            <Icon className="w-6 h-6 text-white" />
+                          </div>
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-mcs-teal/20 text-mcs-teal border-mcs-teal/30"
+                          >
+                            {hasSubServices ? `${service.sub_services.length} subservicio${service.sub_services.length > 1 ? 's' : ''}` : 'Activo'}
+                          </Badge>
+                        </div>
+                        <CardTitle className="text-lg text-foreground group-hover:text-mcs-cyan transition-colors">
+                          {service.name}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-muted-foreground text-sm mb-4">
+                          {description}
+                        </p>
+                        <Button 
+                          className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300"
+                          size="sm"
+                        >
+                          Acceder al Servicio
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Footer Info */}
+              <div className="mt-12">
+                <Card className="bg-card/60 backdrop-blur-sm border-mcs-blue/20">
+                  <CardContent className="p-6 text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <Shield className="w-5 h-5 text-mcs-blue" />
+                      <span className="text-foreground font-semibold">MCS Network Solution</span>
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      Centro de Operaciones de Red (NOC)
+                    </p>
+                    <p className="text-mcs-cyan text-xs mt-2">
+                      Portal seguro - Conexión cifrada SSL/TLS
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
         </main>
       </div>
 
@@ -258,11 +299,11 @@ export default function ClientPortal({
             {selectedService?.sub_services?.map((subService) => (
               <Button
                 key={subService.name}
-                onClick={() => handleSubServiceClick(subService.url)}
+                onClick={() => handleSubServiceClick(subService.url, subService.name)}
                 className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300 justify-between"
               >
                 <span>{subService.name}</span>
-                <ExternalLink className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4 rotate-180" />
               </Button>
             ))}
           </div>
