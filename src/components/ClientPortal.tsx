@@ -79,8 +79,6 @@ export default function ClientPortal({
 }: ClientPortalProps) {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isSubServicesDialogOpen, setIsSubServicesDialogOpen] = useState(false);
-  const [activeServiceUrl, setActiveServiceUrl] = useState<string | null>(null);
-  const [activeServiceName, setActiveServiceName] = useState<string>('');
   
   const handleServiceClick = (service: Service) => {
     if (!service.sub_services || service.sub_services.length === 0) {
@@ -88,10 +86,9 @@ export default function ClientPortal({
       return;
     }
 
-    // If there's only one subservice, open it directly in iframe
+    // If there's only one subservice, open it directly in new window
     if (service.sub_services.length === 1) {
-      setActiveServiceUrl(service.sub_services[0].url);
-      setActiveServiceName(`${service.name} - ${service.sub_services[0].name}`);
+      window.open(service.sub_services[0].url, '_blank', 'noopener,noreferrer');
       return;
     }
 
@@ -100,15 +97,9 @@ export default function ClientPortal({
     setIsSubServicesDialogOpen(true);
   };
 
-  const handleSubServiceClick = (url: string, subServiceName: string) => {
-    setActiveServiceUrl(url);
-    setActiveServiceName(`${selectedService?.name} - ${subServiceName}`);
+  const handleSubServiceClick = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
     setIsSubServicesDialogOpen(false);
-  };
-
-  const handleBackToServices = () => {
-    setActiveServiceUrl(null);
-    setActiveServiceName('');
   };
 
   return (
@@ -172,35 +163,6 @@ export default function ClientPortal({
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
-          {activeServiceUrl ? (
-            // Service View with iframe
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <Button
-                  onClick={handleBackToServices}
-                  variant="outline"
-                  className="border-mcs-blue/30 hover:bg-mcs-blue/10"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Regresar a Servicios
-                </Button>
-                <h2 className="text-xl font-bold text-foreground">{activeServiceName}</h2>
-              </div>
-              
-              <Card className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-card overflow-hidden">
-                <CardContent className="p-0">
-                  <iframe
-                    src={activeServiceUrl}
-                    className="w-full h-[calc(100vh-200px)] border-0"
-                    title={activeServiceName}
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            // Services List View
-            <>
               {/* Welcome Section */}
               <div className="mb-8">
                 <Card className="bg-gradient-secondary/20 backdrop-blur-sm border-mcs-teal/30 shadow-card">
@@ -279,8 +241,6 @@ export default function ClientPortal({
                   </CardContent>
                 </Card>
               </div>
-            </>
-          )}
         </main>
       </div>
 
@@ -299,11 +259,11 @@ export default function ClientPortal({
             {selectedService?.sub_services?.map((subService) => (
               <Button
                 key={subService.name}
-                onClick={() => handleSubServiceClick(subService.url, subService.name)}
+                onClick={() => handleSubServiceClick(subService.url)}
                 className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300 justify-between"
               >
                 <span>{subService.name}</span>
-                <ArrowLeft className="w-4 h-4 rotate-180" />
+                <ExternalLink className="w-4 h-4" />
               </Button>
             ))}
           </div>
