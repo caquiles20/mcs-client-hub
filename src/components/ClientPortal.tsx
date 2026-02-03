@@ -21,10 +21,10 @@ import {
   Database,
   LogOut,
   User,
-  ExternalLink,
-  ArrowLeft
+  ExternalLink
 } from 'lucide-react';
 import nocBackground from '@/assets/noc-background.jpg';
+import { ChatWidget } from '@/components/chat';
 
 interface SubService {
   name: string;
@@ -269,6 +269,12 @@ export default function ClientPortal({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Chat Widget */}
+      <ChatWidget 
+        userDomain={clientEmail.split('@')[1] || ''} 
+        clientName={clientName} 
+      />
     </div>
   );
 }

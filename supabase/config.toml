@@ -1,1 +1,4 @@
 project_id = "dbeeoriugpuqzqmhvjei"
+
+[functions.mcs-chatbot]
+verify_jwt = false
