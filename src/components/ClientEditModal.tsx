@@ -29,10 +29,23 @@ interface ClientEditModalProps {
 export function ClientEditModal({ client, availableServiceNames, onSave, onClose }: ClientEditModalProps) {
   const [editedClient, setEditedClient] = useState<Client>(client);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [localSubServiceValues, setLocalSubServiceValues] = useState<Record<number, { name: string; url: string }>>({});
   const { clients, addService, updateService, deleteService, addSubService, updateSubService, deleteSubService } = useClients();
+
+  // Initialize local sub-service values from client data
+  const initLocalSubServiceValues = (clientData: Client) => {
+    const values: Record<number, { name: string; url: string }> = {};
+    clientData.services?.forEach(service => {
+      service.sub_services?.forEach(sub => {
+        values[sub.id] = { name: sub.name, url: sub.url };
+      });
+    });
+    setLocalSubServiceValues(values);
+  };
 
   useEffect(() => {
     setEditedClient(client);
+    initLocalSubServiceValues(client);
   }, [client]);
 
   // Update editedClient when clients data changes
@@ -40,6 +53,7 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
     const updatedClient = clients.find(c => c.id === client.id);
     if (updatedClient && !isRefreshing) {
       setEditedClient(updatedClient);
+      initLocalSubServiceValues(updatedClient);
     }
   }, [clients, client.id, isRefreshing]);
 
@@ -270,8 +284,17 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
                       <div>
                         <Label className="text-xs text-muted-foreground">Nombre del Subservicio</Label>
                         <Input
-                          value={subService.name}
-                          onChange={(e) => handleUpdateSubService(subService.id, 'name', e.target.value)}
+                          value={localSubServiceValues[subService.id]?.name ?? subService.name}
+                          onChange={(e) => setLocalSubServiceValues(prev => ({
+                            ...prev,
+                            [subService.id]: { ...prev[subService.id], name: e.target.value }
+                          }))}
+                          onBlur={() => {
+                            const local = localSubServiceValues[subService.id];
+                            if (local && local.name !== subService.name) {
+                              handleUpdateSubService(subService.id, 'name', local.name);
+                            }
+                          }}
                           placeholder="Nombre del subservicio"
                           className="bg-background/50 text-sm"
                         />
@@ -280,8 +303,17 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
                         <div className="flex-1">
                           <Label className="text-xs text-muted-foreground">URL del Subservicio</Label>
                           <Input
-                            value={subService.url}
-                            onChange={(e) => handleUpdateSubService(subService.id, 'url', e.target.value)}
+                            value={localSubServiceValues[subService.id]?.url ?? subService.url}
+                            onChange={(e) => setLocalSubServiceValues(prev => ({
+                              ...prev,
+                              [subService.id]: { ...prev[subService.id], url: e.target.value }
+                            }))}
+                            onBlur={() => {
+                              const local = localSubServiceValues[subService.id];
+                              if (local && local.url !== subService.url) {
+                                handleUpdateSubService(subService.id, 'url', local.url);
+                              }
+                            }}
                             placeholder="https://..."
                             className="bg-background/50 text-sm"
                           />
