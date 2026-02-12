@@ -389,7 +389,16 @@ export function useClients() {
 
       if (error) throw error;
       
-      await fetchClients();
+      // Update local state directly instead of full refetch
+      setClients(prev => prev.map(client => ({
+        ...client,
+        services: client.services?.map(service => ({
+          ...service,
+          sub_services: service.sub_services?.map(sub =>
+            sub.id === subServiceId ? { ...sub, ...updates } : sub
+          )
+        }))
+      })));
       return data;
     } catch (error) {
       console.error('Error updating sub-service:', error);
