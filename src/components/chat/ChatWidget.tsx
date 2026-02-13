@@ -217,7 +217,7 @@ export default function ChatWidget({ userDomain, clientName }: ChatWidgetProps) 
                   </div>
                   <h4 className="text-foreground font-medium mb-2">¡Hola! Soy tu asistente MCS</h4>
                   <p className="text-sm text-muted-foreground">
-                    Puedo ayudarte con información sobre MCS y los servicios que ofrecemos, información pública de nuestros principales socios de negocio, y de nuestro NOC (tickets y monitoreo - asociados a su empresa).
+                    Puedo ayudarte con información sobre MCS y los servicios que ofrecemos, información pública de nuestros principales socios de negocio, y de nuestro NOC (tickets de servicio - asociados a su empresa).
                   </p>
                 </div>
               ) : (
