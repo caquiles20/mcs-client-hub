@@ -187,15 +187,15 @@ export default function ChatWidget({ userDomain, clientName }: ChatWidgetProps) 
         </div>
         
         <div className="flex items-center gap-1">
-          <Button
-            onClick={() => window.open(NOC_WHATSAPP_URL, '_blank')}
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-green-500 hover:text-green-400 hover:bg-green-500/10"
+          <a
+            href={NOC_WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-green-500 hover:text-green-400 hover:bg-green-500/10 transition-colors"
             title="Contactar agente NOC por WhatsApp"
           >
             <Phone className="w-4 h-4" />
-          </Button>
+          </a>
           <Button
             onClick={() => setIsMinimized(!isMinimized)}
             variant="ghost"
