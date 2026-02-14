@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, X, Minimize2 } from 'lucide-react';
+import { MessageCircle, X, Minimize2, Phone } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +18,7 @@ interface ChatWidgetProps {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mcs-chatbot`;
+const NOC_WHATSAPP_URL = 'https://wa.me/528123528009';
 
 export default function ChatWidget({ userDomain, clientName }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -186,6 +187,15 @@ export default function ChatWidget({ userDomain, clientName }: ChatWidgetProps) 
         </div>
         
         <div className="flex items-center gap-1">
+          <Button
+            onClick={() => window.open(NOC_WHATSAPP_URL, '_blank')}
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-green-500 hover:text-green-400 hover:bg-green-500/10"
+            title="Contactar agente NOC por WhatsApp"
+          >
+            <Phone className="w-4 h-4" />
+          </Button>
           <Button
             onClick={() => setIsMinimized(!isMinimized)}
             variant="ghost"
