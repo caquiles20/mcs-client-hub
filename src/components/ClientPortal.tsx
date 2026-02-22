@@ -117,15 +117,15 @@ export default function ClientPortal({
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center space-x-4">
               {clientLogo ? (
-                <div className="w-12 h-12 rounded-full overflow-hidden shadow-glow border-2 border-mcs-blue/30">
+                <div className="h-12 px-3 rounded-lg overflow-hidden shadow-glow border-2 border-mcs-blue/30 bg-white/10 flex items-center justify-center">
                   <img 
                     src={clientLogo} 
                     alt={`${clientName} logo`}
-                    className="w-full h-full object-cover"
+                    className="max-h-10 max-w-[120px] w-auto h-auto object-contain"
                   />
                 </div>
               ) : (
-                <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center shadow-glow">
+                <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center shadow-glow">
                   <Shield className="w-6 h-6 text-white" />
                 </div>
               )}
