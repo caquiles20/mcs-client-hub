@@ -234,15 +234,28 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, userDomain, clientName } = await req.json();
+    const rawBody = await req.text();
+    console.log("Raw body received:", rawBody);
+    const { messages, userDomain, clientName, availableServices } = JSON.parse(rawBody);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
+      console.error("Missing LOVABLE_API_KEY");
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    const servicesContext = availableServices && availableServices.length > 0
+      ? "\n\nEl usuario tiene acceso a los siguientes servicios y herramientas específicas en su portal:\n" +
+      availableServices.map((s: any) => {
+        const subLinkStr = s.sub_services?.map((ss: any) => ss.name + " (" + ss.url + ")").join(", ") || "Sin links configurados";
+        return "- **" + s.name + "**: " + subLinkStr;
+      }).join("\n") +
+      "\nCuando el usuario pregunte por estos servicios (especialmente Implementaciones o Gestión de Recursos), proporciónale los nombres y enlaces directos que aparecen arriba."
+      : "";
+
     const personalizedSystemPrompt = SYSTEM_PROMPT
       + `\n\nEl usuario actual pertenece a: ${clientName || "Cliente MCS"} (dominio: ${userDomain || "N/A"}).`
+      + servicesContext
       + `\nCuando uses la herramienta buscar_tickets_halo, los tickets se filtrarán automáticamente para "${clientName || "Cliente MCS"}".`;
 
     const allMessages = [
@@ -250,6 +263,7 @@ serve(async (req) => {
       ...messages,
     ];
 
+    console.log("Calling AI gateway with model gemini-1.5-flash...");
     // First call: let the model decide if it needs tools
     const firstResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -258,7 +272,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-1.5-flash",
         messages: allMessages,
         tools,
         stream: false, // First call non-streaming to check for tool calls
@@ -310,7 +324,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-1.5-flash",
           messages: secondMessages,
           stream: true,
         }),
@@ -339,7 +353,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-1.5-flash",
         messages: allMessages,
         stream: true,
       }),

@@ -4,10 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { UserEditModal } from './UserEditModal';
 import { useUsers } from '@/hooks/useSupabaseData';
 import { useToast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
+import { Loader2 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
 type User = Database['public']['Tables']['users']['Row'];
@@ -21,16 +23,16 @@ export function UserManagement() {
 
   const handleAddUser = async () => {
     console.log('handleAddUser called', newUser);
-    
+
     if (!newUser.email || !newUser.password || !newUser.client) {
-      console.log('Validation failed:', { 
-        hasEmail: !!newUser.email, 
-        hasPassword: !!newUser.password, 
-        hasClient: !!newUser.client 
+      console.log('Validation failed:', {
+        hasEmail: !!newUser.email,
+        hasPassword: !!newUser.password,
+        hasClient: !!newUser.client
       });
       return;
     }
-    
+
     try {
       console.log('Calling addUserDB...');
       await addUserDB(newUser);
@@ -43,8 +45,8 @@ export function UserManagement() {
 
   const handleToggleUserStatus = async (user: User) => {
     try {
-      await updateUserDB(user.id, { 
-        status: user.status === 'active' ? 'inactive' : 'active' 
+      await updateUserDB(user.id, {
+        status: user.status === 'active' ? 'inactive' : 'active'
       });
     } catch (error) {
       // Error is handled in the hook
@@ -86,7 +88,7 @@ export function UserManagement() {
                 id="userEmail"
                 type="email"
                 value={newUser.email}
-                onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                 placeholder="usuario@empresa.com"
                 className="bg-background/50"
               />
@@ -97,7 +99,7 @@ export function UserManagement() {
                 id="userPassword"
                 type="password"
                 value={newUser.password}
-                onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                 placeholder="••••••••"
                 className="bg-background/50"
               />
@@ -107,13 +109,13 @@ export function UserManagement() {
               <Input
                 id="userClient"
                 value={newUser.client}
-                onChange={(e) => setNewUser({...newUser, client: e.target.value})}
+                onChange={(e) => setNewUser({ ...newUser, client: e.target.value })}
                 placeholder="Nombre del cliente"
                 className="bg-background/50"
               />
             </div>
           </div>
-          <Button 
+          <Button
             onClick={() => {
               if (isFormValid) {
                 handleAddUser();
@@ -141,54 +143,50 @@ export function UserManagement() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-mcs-blue" />
-              <span className="ml-2 text-muted-foreground">Cargando usuarios...</span>
-            </div>
+            <LoadingSpinner text="Cargando usuarios..." />
           ) : (
             <div className="space-y-3">
               {users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-3 bg-background/30 rounded-lg border border-mcs-blue/20">
-                <div>
-                  <p className="font-medium text-foreground">{user.email}</p>
-                  <p className="text-sm text-muted-foreground">{user.client}</p>
+                <div key={user.id} className="flex items-center justify-between p-3 bg-background/30 rounded-lg border border-mcs-blue/20">
+                  <div>
+                    <p className="font-medium text-foreground">{user.email}</p>
+                    <p className="text-sm text-muted-foreground">{user.client}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge
+                      variant="secondary"
+                      className={`${user.status === 'active'
+                          ? 'bg-mcs-teal/20 text-mcs-teal'
+                          : 'bg-muted text-muted-foreground'
+                        }`}
+                    >
+                      {user.status}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleToggleUserStatus(user)}
+                      className="border-mcs-blue/30"
+                    >
+                      {user.status === 'active' ? 'Desactivar' : 'Activar'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingUser(user)}
+                      className="border-mcs-blue/30"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteUser(user.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Badge 
-                    variant="secondary" 
-                    className={`${
-                      user.status === 'active' 
-                        ? 'bg-mcs-teal/20 text-mcs-teal' 
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {user.status}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleToggleUserStatus(user)}
-                    className="border-mcs-blue/30"
-                  >
-                    {user.status === 'active' ? 'Desactivar' : 'Activar'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setEditingUser(user)}
-                    className="border-mcs-blue/30"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDeleteUser(user.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
               ))}
             </div>
           )}
