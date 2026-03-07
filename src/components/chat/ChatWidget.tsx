@@ -2,11 +2,13 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, X, Minimize2 } from 'lucide-react';
+import { X, Minimize2, MessageCircle } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { useToast } from '@/hooks/use-toast';
 import robotAvatar from '@/assets/robot-avatar.png';
+
+const robotAvatarWithCache = `${robotAvatar}?v=3`;
 
 interface Message {
   role: 'user' | 'assistant';
@@ -28,21 +30,18 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Keep a ref of messages so streamChat doesn't need messages in its dep array
   const messagesRef = useRef<Message[]>(messages);
   const { toast } = useToast();
 
-  // Keep ref in sync with state
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isOpen]);
 
   const streamChat = useCallback(async (userMessage: string) => {
     const userMsg: Message = { role: 'user', content: userMessage };
@@ -72,7 +71,6 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          // Use ref so this callback stays stable across re-renders
           messages: [...messagesRef.current, userMsg],
           userDomain,
           clientName,
@@ -81,30 +79,16 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-
-        if (response.status === 429) {
-          toast({
-            title: "Límite alcanzado",
-            description: "Demasiadas solicitudes. Intenta de nuevo en unos momentos.",
-            variant: "destructive",
-          });
-        } else if (response.status === 402) {
-          toast({
-            title: "Créditos agotados",
-            description: "El servicio de asistente requiere créditos adicionales.",
-            variant: "destructive",
-          });
-        } else {
-          throw new Error(errorData.error || 'Error al conectar con el asistente');
-        }
+        toast({
+          title: "Error",
+          description: "No se pudo conectar con el asistente.",
+          variant: "destructive",
+        });
         setIsLoading(false);
         return;
       }
 
-      if (!response.body) throw new Error('No response stream');
-
-      const reader = response.body.getReader();
+      const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let textBuffer = '';
 
@@ -136,35 +120,12 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
           }
         }
       }
-
-      // Flush remaining buffer
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split('\n')) {
-          if (!raw || !raw.startsWith('data: ')) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) updateAssistant(content);
-          } catch { /* ignore */ }
-        }
-      }
-
     } catch (error) {
       console.error('Chat error:', error);
       toast({
         title: "Error",
-        description: "No se pudo conectar con el asistente. Intenta de nuevo.",
-        variant: "destructive",
-      });
-      // Remove the failed assistant message placeholder if it exists with no content
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant' && !last.content) {
-          return prev.slice(0, -1);
-        }
-        return prev;
+        description: "Error de conexión.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
@@ -175,18 +136,17 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-transparent hover:scale-110 transition-transform z-50 p-0 overflow-visible group"
+        className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-white/15 backdrop-blur-md hover:scale-110 transition-transform z-[9999] p-0 overflow-visible group shadow-2xl border border-white/30"
         size="icon"
       >
-        <div className="relative w-full h-full">
+        <div className="relative w-full h-full flex items-center justify-center">
           <img
-            src={robotAvatar}
+            src={robotAvatarWithCache}
             alt="AI Assistant"
-            className="w-full h-full object-contain drop-shadow-glow animate-bounce-subtle"
+            className="w-12 h-12 object-contain drop-shadow-lg animate-bounce-subtle"
           />
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full animate-pulse" />
 
-          {/* Greeting Wave Animation */}
           <style dangerouslySetInnerHTML={{
             __html: `
             @keyframes wave {
@@ -212,16 +172,15 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
   }
 
   return (
-    <Card className={`fixed bottom-6 right-6 w-96 bg-card/95 backdrop-blur-sm border-mcs-blue/30 shadow-glow z-50 flex flex-col transition-all duration-300 ${isMinimized ? 'h-14' : 'h-[500px]'}`}>
-      {/* Header */}
+    <Card className={`fixed bottom-6 right-6 w-96 bg-card/95 backdrop-blur-md border-mcs-blue/30 shadow-2xl z-[9999] flex flex-col transition-all duration-300 ${isMinimized ? 'h-14' : 'h-[550px]'}`}>
       <div className="flex items-center justify-between p-4 border-b border-mcs-blue/30 bg-gradient-secondary/30 rounded-t-lg">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-full border border-mcs-blue/30 overflow-hidden bg-white/10 flex items-center justify-center p-1">
-            <img src={robotAvatar} alt="Bot" className="w-full h-full object-contain" />
+            <img src={robotAvatarWithCache} alt="Bot" className="w-full h-full object-contain" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground">Asistente MCS</h3>
-            <p className="text-xs text-mcs-cyan">En línea</p>
+            <p className="text-xs text-mcs-cyan font-medium uppercase tracking-tighter">En línea</p>
           </div>
         </div>
 
@@ -256,17 +215,16 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
 
       {!isMinimized && (
         <>
-          {/* Messages */}
           <ScrollArea className="flex-1" ref={scrollRef}>
             <div className="min-h-full">
               {messages.length === 0 ? (
-                <div className="p-6 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-secondary/30 flex items-center justify-center">
-                    <MessageCircle className="w-8 h-8 text-mcs-teal" />
+                <div className="p-8 text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-secondary/20 flex items-center justify-center">
+                    <MessageCircle className="w-10 h-10 text-mcs-teal shadow-glow" />
                   </div>
-                  <h4 className="text-foreground font-medium mb-2">¡Hola! Soy tu asistente MCS</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Puedo ayudarte con información sobre MCS y los servicios que ofrecemos, información pública de nuestros principales socios de negocio, y de nuestro NOC (tickets de servicio - asociados a su empresa).
+                  <h4 className="text-foreground font-bold mb-2 text-lg">¡Bienvenido!</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Soy tu asistente técnico de MCS. Puedo ayudarte con dudas de partners, proyectos y tickets del NOC.
                   </p>
                 </div>
               ) : (
@@ -285,11 +243,10 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
             </div>
           </ScrollArea>
 
-          {/* Input */}
           <ChatInput
             onSend={streamChat}
             isLoading={isLoading}
-            placeholder="Pregunta sobre servicios NOC..."
+            placeholder="¿En qué puedo apoyarte hoy?"
           />
         </>
       )}
