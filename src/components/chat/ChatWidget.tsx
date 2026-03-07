@@ -8,7 +8,7 @@ import ChatInput from './ChatInput';
 import { useToast } from '@/hooks/use-toast';
 import robotAvatar from '@/assets/robot-avatar.png';
 
-const robotAvatarWithCache = `${robotAvatar}?v=3`;
+const robotAvatarWithCache = `${robotAvatar}?v=5`;
 
 interface Message {
   role: 'user' | 'assistant';
@@ -136,16 +136,19 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-white/15 backdrop-blur-md hover:scale-110 transition-transform z-[9999] p-0 overflow-visible group shadow-2xl border border-white/30"
+        className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-transparent hover:scale-105 transition-all duration-300 z-[9999] p-0 overflow-visible group shadow-none border-none ring-0 outline-none"
         size="icon"
       >
         <div className="relative w-full h-full flex items-center justify-center">
-          <img
-            src={robotAvatarWithCache}
-            alt="AI Assistant"
-            className="w-12 h-12 object-contain drop-shadow-lg animate-bounce-subtle"
-          />
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full animate-pulse" />
+          <div className="w-14 h-14 rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.15)] border-2 border-white overflow-hidden flex items-center justify-center p-0.5 group-hover:shadow-[0_12px_30px_rgba(0,0,0,0.25)] transition-all">
+            <img
+              src={robotAvatarWithCache}
+              alt="AI Assistant"
+              className="w-full h-full object-contain animate-bounce-subtle"
+              style={{ mixBlendMode: 'normal' }}
+            />
+          </div>
+          <div className="absolute top-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full animate-pulse z-10" />
 
           <style dangerouslySetInnerHTML={{
             __html: `
