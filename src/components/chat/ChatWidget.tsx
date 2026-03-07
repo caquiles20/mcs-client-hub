@@ -6,6 +6,7 @@ import { MessageCircle, X, Minimize2 } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { useToast } from '@/hooks/use-toast';
+import robotAvatar from '@/assets/robot-avatar.png';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -174,10 +175,38 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-gradient-primary hover:bg-gradient-secondary shadow-glow z-50"
+        className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-transparent hover:scale-110 transition-transform z-50 p-0 overflow-visible group"
         size="icon"
       >
-        <MessageCircle className="w-6 h-6" />
+        <div className="relative w-full h-full">
+          <img
+            src={robotAvatar}
+            alt="AI Assistant"
+            className="w-full h-full object-contain drop-shadow-glow animate-bounce-subtle"
+          />
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full animate-pulse" />
+
+          {/* Greeting Wave Animation */}
+          <style dangerouslySetInnerHTML={{
+            __html: `
+            @keyframes wave {
+              0%, 100% { transform: rotate(0deg); }
+              20%, 60% { transform: rotate(-15deg); }
+              40%, 80% { transform: rotate(10deg); }
+            }
+            @keyframes bounce-subtle {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-5px); }
+            }
+            .animate-bounce-subtle {
+              animation: bounce-subtle 3s ease-in-out infinite;
+            }
+            .group:hover .animate-bounce-subtle {
+              animation: wave 1s ease-in-out infinite;
+              transform-origin: bottom center;
+            }
+          `}} />
+        </div>
       </Button>
     );
   }
@@ -187,8 +216,8 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-mcs-blue/30 bg-gradient-secondary/30 rounded-t-lg">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center">
-            <MessageCircle className="w-4 h-4 text-white" />
+          <div className="w-10 h-10 rounded-full border border-mcs-blue/30 overflow-hidden bg-white/10 flex items-center justify-center p-1">
+            <img src={robotAvatar} alt="Bot" className="w-full h-full object-contain" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground">Asistente MCS</h3>
