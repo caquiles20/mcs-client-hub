@@ -4,56 +4,53 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Shield, Edit, Trash2, Plus } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserEditModal } from './UserEditModal';
-import { useUsers } from '@/hooks/useSupabaseData';
+import { useUsers, UserProfile, ProfileRole } from '@/hooks/useUsers';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Loader2 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
-type User = Database['public']['Tables']['users']['Row'];
+type User = UserProfile;
 
 export function UserManagement() {
-  const [newUser, setNewUser] = useState({ email: '', password: '', client: '' });
+  const [newUser, setNewUser] = useState({ email: '', password: '', fullName: '', role: 'visualizador' as ProfileRole, clientName: '' });
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { users, loading, addUser: addUserDB, updateUser: updateUserDB, deleteUser: deleteUserDB } = useUsers();
   const { toast } = useToast();
-  const isFormValid = newUser.email.trim() !== '' && newUser.password.trim() !== '' && newUser.client.trim() !== '';
+  const isFormValid = newUser.email.trim() !== '' && newUser.fullName.trim() !== '';
 
   const handleAddUser = async () => {
-    console.log('handleAddUser called', newUser);
-
-    if (!newUser.email || !newUser.password || !newUser.client) {
-      console.log('Validation failed:', {
-        hasEmail: !!newUser.email,
-        hasPassword: !!newUser.password,
-        hasClient: !!newUser.client
-      });
-      return;
-    }
+    if (!isFormValid) return;
 
     try {
-      console.log('Calling addUserDB...');
-      await addUserDB(newUser);
-      setNewUser({ email: '', password: '', client: '' });
-      console.log('User added successfully');
+      await addUserDB({
+        email: newUser.email,
+        password: newUser.password || undefined,
+        full_name: newUser.fullName,
+        role: newUser.role,
+        client_name: newUser.clientName || null
+      });
+      setNewUser({ email: '', password: '', fullName: '', role: 'visualizador', clientName: '' });
     } catch (error) {
-      console.error('Error in handleAddUser:', error);
+      // Error handled in hook
     }
   };
+
 
   const handleToggleUserStatus = async (user: User) => {
     try {
       await updateUserDB(user.id, {
-        status: user.status === 'active' ? 'inactive' : 'active'
+        is_active: !user.is_active
       });
     } catch (error) {
       // Error is handled in the hook
     }
   };
 
-  const handleDeleteUser = async (userId: number) => {
+  const handleDeleteUser = async (userId: string) => {
     try {
       await deleteUserDB(userId);
     } catch (error) {
@@ -73,66 +70,90 @@ export function UserManagement() {
   return (
     <div className="space-y-6">
       {/* Add User Form */}
-      <Card className="bg-card/80 backdrop-blur-sm border-mcs-blue/30">
+      <Card className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Plus className="w-5 h-5 text-mcs-blue" />
-            <span>Agregar Nuevo Usuario</span>
+          <CardTitle className="flex items-center space-x-2 text-mcs-blue">
+            <Plus className="w-5 h-5" />
+            <span>Crear Nuevo Colaborador / Cliente</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="fullName">Nombre Completo</Label>
+              <Input
+                id="fullName"
+                value={newUser.fullName}
+                onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })}
+                placeholder="Ej. Juan Pérez"
+                className="bg-background/50 h-9"
+              />
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="userEmail">Correo Electrónico</Label>
               <Input
                 id="userEmail"
                 type="email"
                 value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                placeholder="usuario@empresa.com"
-                className="bg-background/50"
+                placeholder="usuario@mcs.com.mx"
+                className="bg-background/50 h-9"
               />
             </div>
-            <div>
-              <Label htmlFor="userPassword">Contraseña</Label>
+            <div className="space-y-1">
+              <Label htmlFor="userRole">Rol en el Ecosistema</Label>
+              <Select
+                value={newUser.role}
+                onValueChange={(value: ProfileRole) => setNewUser({ ...newUser, role: value })}
+              >
+                <SelectTrigger className="bg-background/50 h-9">
+                  <SelectValue placeholder="Seleccionar rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="gerente">Gerente</SelectItem>
+                  <SelectItem value="responsable">Responsable</SelectItem>
+                  <SelectItem value="visualizador">Visualizador (Default)</SelectItem>
+                  <SelectItem value="implementador">Implementador</SelectItem>
+                  <SelectItem value="Ing. Especialista">Ing. Especialista</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="clientName">Empresa / Cliente</Label>
               <Input
-                id="userPassword"
+                id="clientName"
+                value={newUser.clientName}
+                onChange={(e) => setNewUser({ ...newUser, clientName: e.target.value })}
+                placeholder="Ej. MCS Networks"
+                className="bg-background/50 h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="tempPassword">Contraseña Temporal (Opcional)</Label>
+              <Input
+                id="tempPassword"
                 type="password"
                 value={newUser.password}
                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                placeholder="••••••••"
-                className="bg-background/50"
+                placeholder="Dejar vacío para auto-generar"
+                className="bg-background/50 h-9"
               />
             </div>
-            <div>
-              <Label htmlFor="userClient">Cliente</Label>
-              <Input
-                id="userClient"
-                value={newUser.client}
-                onChange={(e) => setNewUser({ ...newUser, client: e.target.value })}
-                placeholder="Nombre del cliente"
-                className="bg-background/50"
-              />
+            <div className="flex items-end">
+              <Button
+                onClick={handleAddUser}
+                disabled={loading || !isFormValid}
+                className="w-full bg-gradient-secondary hover:bg-gradient-primary h-9"
+              >
+                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                Crear Usuario
+              </Button>
             </div>
           </div>
-          <Button
-            onClick={() => {
-              if (isFormValid) {
-                handleAddUser();
-              } else {
-                toast({
-                  title: 'Faltan datos',
-                  description: 'Completa correo, contraseña y cliente',
-                  variant: 'destructive'
-                });
-              }
-            }}
-            className="bg-gradient-secondary hover:bg-gradient-primary"
-            disabled={loading || !isFormValid}
-          >
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            Agregar Usuario
-          </Button>
+          <p className="text-[10px] text-muted-foreground italic pt-2">
+            * Al crear el usuario, se le asignará el acceso a las aplicaciones correspondientes según su dominio y rol.
+          </p>
         </CardContent>
       </Card>
 
@@ -149,18 +170,21 @@ export function UserManagement() {
               {users.map((user) => (
                 <div key={user.id} className="flex items-center justify-between p-3 bg-background/30 rounded-lg border border-mcs-blue/20">
                   <div>
-                    <p className="font-medium text-foreground">{user.email}</p>
-                    <p className="text-sm text-muted-foreground">{user.client}</p>
+                    <p className="font-medium text-foreground">{user.full_name || 'Sin nombre'}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <Badge variant="outline" className="mt-1 text-[10px] uppercase font-bold text-mcs-blue border-mcs-blue/30">
+                      {user.role}
+                    </Badge>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge
                       variant="secondary"
-                      className={`${user.status === 'active'
-                          ? 'bg-mcs-teal/20 text-mcs-teal'
-                          : 'bg-muted text-muted-foreground'
+                      className={`${user.is_active
+                        ? 'bg-mcs-teal/20 text-mcs-teal'
+                        : 'bg-muted text-muted-foreground'
                         }`}
                     >
-                      {user.status}
+                      {user.is_active ? 'Activo' : 'Inactivo'}
                     </Badge>
                     <Button
                       size="sm"
@@ -168,7 +192,7 @@ export function UserManagement() {
                       onClick={() => handleToggleUserStatus(user)}
                       className="border-mcs-blue/30"
                     >
-                      {user.status === 'active' ? 'Desactivar' : 'Activar'}
+                      {user.is_active ? 'Desactivar' : 'Activar'}
                     </Button>
                     <Button
                       size="sm"

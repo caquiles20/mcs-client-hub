@@ -21,11 +21,16 @@ import {
   Database,
   LogOut,
   User,
-  ExternalLink
+  ExternalLink,
+  Table,
+  Building
 } from 'lucide-react';
 import nocBackground from '@/assets/noc-background.jpg';
 import { ChatWidget } from '@/components/chat';
 import { getSSOUrl } from '@/lib/auth-utils';
+import { UserManagement } from './UserManagement';
+import { ClientManagement } from './ClientManagement';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface SubService {
   name: string;
@@ -44,6 +49,7 @@ interface ClientPortalProps {
   availableServices: Service[];
   onLogout: () => void;
   onChangePassword: () => void;
+  isAdmin?: boolean;
 }
 
 const serviceIcons: { [key: string]: any } = {
@@ -76,10 +82,12 @@ export default function ClientPortal({
   clientEmail,
   availableServices,
   onLogout,
-  onChangePassword
+  onChangePassword,
+  isAdmin = false
 }: ClientPortalProps) {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isSubServicesDialogOpen, setIsSubServicesDialogOpen] = useState(false);
+  const [isAdminView, setIsAdminView] = useState(false);
 
   const handleServiceClick = useCallback(async (service: Service) => {
     if (!service.sub_services || service.sub_services.length === 0) {
@@ -88,7 +96,7 @@ export default function ClientPortal({
     }
     if (service.sub_services.length === 1) {
       const ssoUrl = await getSSOUrl(service.sub_services[0].url);
-      window.open(ssoUrl, '_blank', 'noopener,noreferrer');
+      window.open(ssoUrl, '_self');
       return;
     }
     setSelectedService(service);
@@ -97,7 +105,7 @@ export default function ClientPortal({
 
   const handleSubServiceClick = useCallback(async (url: string) => {
     const ssoUrl = await getSSOUrl(url);
-    window.open(ssoUrl, '_blank', 'noopener,noreferrer');
+    window.open(ssoUrl, '_self');
     setIsSubServicesDialogOpen(false);
   }, []);
 
@@ -157,6 +165,18 @@ export default function ClientPortal({
                 </Button>
               </div>
 
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsAdminView(!isAdminView)}
+                  className={isAdminView ? "text-mcs-cyan bg-mcs-blue/20" : "text-foreground hover:text-mcs-cyan"}
+                  title={isAdminView ? "Volver al Portal" : "Administración del Portal"}
+                >
+                  <Settings className="w-5 h-5" />
+                </Button>
+              )}
+
               <Button
                 onClick={onLogout}
                 variant="outline"
@@ -172,58 +192,97 @@ export default function ClientPortal({
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
-          {/* Welcome Section */}
+          {/* Welcome Section / Administration UI */}
           <div className="mb-8">
-            <Card className="bg-gradient-secondary/20 backdrop-blur-sm border-mcs-teal/30 shadow-card">
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-white mb-2">
-                    Bienvenido al Portal de Servicios
-                  </h2>
-                  <p className="text-mcs-cyan">
-                    Accede a todos los servicios de NOC disponibles para tu organización
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Services Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {processedServices.map(({ service, Icon, description, hasSubServices }) => (
-              <Card
-                key={service.name}
-                className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-card hover:shadow-glow transition-all duration-300 cursor-pointer group"
-                onClick={() => handleServiceClick(service)}
-              >
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 bg-gradient-secondary rounded-lg flex items-center justify-center group-hover:bg-gradient-primary transition-all duration-300">
-                      <Icon className="w-6 h-6 text-white" />
-                    </div>
-                    <Badge
-                      variant="secondary"
-                      className="bg-mcs-teal/20 text-mcs-teal border-mcs-teal/30"
-                    >
-                      {hasSubServices ? `${service.sub_services!.length} subservicio${service.sub_services!.length > 1 ? 's' : ''}` : 'Activo'}
-                    </Badge>
-                  </div>
-                  <CardTitle className="text-lg text-foreground group-hover:text-mcs-cyan transition-colors">
-                    {service.name}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-sm mb-4">{description}</p>
+            {isAdminView ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-bold text-white">Panel de Administración</h2>
                   <Button
-                    className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300"
+                    variant="ghost"
                     size="sm"
+                    onClick={() => setIsAdminView(false)}
+                    className="text-mcs-cyan"
                   >
-                    Acceder al Servicio
+                    Regresar al Portal
                   </Button>
+                </div>
+
+                <Tabs defaultValue="users" className="space-y-6">
+                  <TabsList className="grid w-full grid-cols-2 bg-card/50">
+                    <TabsTrigger value="users" className="flex items-center space-x-2">
+                      <Users className="w-4 h-4" />
+                      <span>Usuarios</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="clients" className="flex items-center space-x-2">
+                      <Building className="w-4 h-4" />
+                      <span>Clientes</span>
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="users" className="space-y-6">
+                    <UserManagement />
+                  </TabsContent>
+
+                  <TabsContent value="clients" className="space-y-6">
+                    <ClientManagement />
+                  </TabsContent>
+                </Tabs>
+              </div>
+            ) : (
+              <Card className="bg-gradient-secondary/20 backdrop-blur-sm border-mcs-teal/30 shadow-card">
+                <CardContent className="p-6">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold text-white mb-2">
+                      Bienvenido al Portal de Servicios
+                    </h2>
+                    <p className="text-mcs-cyan">
+                      Accede a todos los servicios de NOC disponibles para tu organización
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
-            ))}
+            )}
           </div>
+
+          {/* Services Grid (Only visible if not in admin view) */}
+          {!isAdminView && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {processedServices.map(({ service, Icon, description, hasSubServices }) => (
+                <Card
+                  key={service.name}
+                  className="bg-card/80 backdrop-blur-sm border-mcs-blue/30 shadow-card hover:shadow-glow transition-all duration-300 cursor-pointer group"
+                  onClick={() => handleServiceClick(service)}
+                >
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="w-12 h-12 bg-gradient-secondary rounded-lg flex items-center justify-center group-hover:bg-gradient-primary transition-all duration-300">
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <Badge
+                        variant="secondary"
+                        className="bg-mcs-teal/20 text-mcs-teal border-mcs-teal/30"
+                      >
+                        {hasSubServices ? `${service.sub_services!.length} subservicio${service.sub_services!.length > 1 ? 's' : ''}` : 'Activo'}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-lg text-foreground group-hover:text-mcs-cyan transition-colors">
+                      {service.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground text-sm mb-4">{description}</p>
+                    <Button
+                      className="w-full bg-gradient-secondary hover:bg-gradient-primary transition-all duration-300"
+                      size="sm"
+                    >
+                      Acceder al Servicio
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Footer Info */}
           <div className="mt-12">

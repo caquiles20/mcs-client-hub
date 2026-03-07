@@ -4,19 +4,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Database } from '@/integrations/supabase/types';
-
-type User = Database['public']['Tables']['users']['Row'];
+import { UserProfile, ProfileRole } from '@/hooks/useUsers';
 
 interface UserEditModalProps {
-  user: User;
-  onSave: (user: User) => Promise<void>;
+  user: UserProfile;
+  onSave: (user: UserProfile) => Promise<void>;
   onClose: () => void;
 }
 
+const ROLES: ProfileRole[] = [
+  'admin',
+  'responsable',
+  'visualizador',
+  'gerente',
+  'Ing. Especialista',
+  'Ing. Campo',
+  'implementador'
+];
+
 export function UserEditModal({ user, onSave, onClose }: UserEditModalProps) {
-  const [editedUser, setEditedUser] = useState(user);
-  const [newPassword, setNewPassword] = useState('');
+  const [editedUser, setEditedUser] = useState<UserProfile>(user);
 
   const handleSave = async () => {
     await onSave(editedUser);
@@ -24,9 +31,9 @@ export function UserEditModal({ user, onSave, onClose }: UserEditModalProps) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="bg-card/95 backdrop-blur-sm border-mcs-blue/30">
+      <DialogContent className="bg-card/95 backdrop-blur-sm border-mcs-blue/30 max-w-md w-full">
         <DialogHeader>
-          <DialogTitle>Editar Usuario</DialogTitle>
+          <DialogTitle>Editar Perfil de Usuario</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -35,44 +42,63 @@ export function UserEditModal({ user, onSave, onClose }: UserEditModalProps) {
               id="editEmail"
               type="email"
               value={editedUser.email}
-              onChange={(e) => setEditedUser({...editedUser, email: e.target.value})}
-              className="bg-background/50"
+              disabled
+              className="bg-background/30 opacity-70"
             />
+            <p className="text-[10px] text-muted-foreground mt-1 italic">El correo no puede ser modificado aquí.</p>
           </div>
           <div>
-            <Label htmlFor="editPassword">Nueva Contraseña (opcional)</Label>
+            <Label htmlFor="editFullName">Nombre Completo</Label>
             <Input
-              id="editPassword"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Dejar vacío para no cambiar"
+              id="editFullName"
+              value={editedUser.full_name || ''}
+              onChange={(e) => setEditedUser({ ...editedUser, full_name: e.target.value })}
               className="bg-background/50"
+              placeholder="Ej. Juan Pérez"
             />
           </div>
           <div>
-            <Label htmlFor="editClient">Cliente</Label>
-            <Input
-              id="editClient"
-              value={editedUser.client}
-              onChange={(e) => setEditedUser({...editedUser, client: e.target.value})}
-              className="bg-background/50"
-            />
-          </div>
-          <div>
-            <Label htmlFor="editStatus">Estado</Label>
+            <Label htmlFor="editRole">Rol en el Ecosistema</Label>
             <Select
-              value={editedUser.status || 'active'}
-              onValueChange={(value: string) => 
-                setEditedUser({...editedUser, status: value})
+              value={editedUser.role}
+              onValueChange={(value: ProfileRole) =>
+                setEditedUser({ ...editedUser, role: value })
+              }
+            >
+              <SelectTrigger className="bg-background/50">
+                <SelectValue placeholder="Seleccionar rol" />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLES.map(role => (
+                  <SelectItem key={role} value={role}>{role}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="editClientName">Nombre de Cliente / Empresa</Label>
+            <Input
+              id="editClientName"
+              value={editedUser.client_name || ''}
+              onChange={(e) => setEditedUser({ ...editedUser, client_name: e.target.value })}
+              className="bg-background/50"
+              placeholder="Ej. MCS Networks"
+            />
+          </div>
+          <div>
+            <Label htmlFor="editStatus">Estado de Acceso</Label>
+            <Select
+              value={editedUser.is_active ? 'active' : 'inactive'}
+              onValueChange={(value: string) =>
+                setEditedUser({ ...editedUser, is_active: value === 'active' })
               }
             >
               <SelectTrigger className="bg-background/50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">Activo</SelectItem>
-                <SelectItem value="inactive">Inactivo</SelectItem>
+                <SelectItem value="active">Permitido</SelectItem>
+                <SelectItem value="inactive">Revocado</SelectItem>
               </SelectContent>
             </Select>
           </div>

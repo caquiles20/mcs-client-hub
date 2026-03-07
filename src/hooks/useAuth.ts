@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -10,8 +10,10 @@ interface ServiceWithSubServices {
 }
 
 interface AuthUser {
+    id: string;
     email: string;
     type: UserType;
+    full_name?: string | null;
     clientName?: string;
     clientLogo?: string;
     availableServices?: ServiceWithSubServices[];
@@ -20,25 +22,56 @@ interface AuthUser {
 export function useAuth() {
     const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
     const [showChangePassword, setShowChangePassword] = useState(false);
+    const [loading, setLoading] = useState(true);
     const { toast } = useToast();
+
+    const fetchProfile = async (userId: string, email: string) => {
+        try {
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (error || !profile) {
+                console.error("Profile not found in public.profiles:", error);
+                return null;
+            }
+
+            // Determine target client name for service fetching
+            // Admins fetch from 'MCS' company by default
+            const targetClientName = (profile.role === 'admin') ? 'MCS' : (profile.client_name || '');
+
+            const { data: clientData } = await supabase
+                .from('clients')
+                .select(`
+                    name,
+                    logo,
+                    services(
+                        name,
+                        sub_services(name, url)
+                    )
+                `)
+                .eq('name', targetClientName)
+                .single();
+
+            return {
+                id: userId,
+                email,
+                type: (profile.role === 'admin' ? 'admin' : 'client') as UserType,
+                full_name: profile.full_name,
+                clientName: clientData?.name || profile.client_name || (profile.role === 'admin' ? 'MCS' : 'MCS Client'),
+                clientLogo: clientData?.logo,
+                availableServices: clientData?.services || []
+            };
+        } catch (err) {
+            console.error("Error fetching profile:", err);
+            return null;
+        }
+    };
 
     const handleLogin = async (email: string, password: string) => {
         try {
-            // Admin bypass (still using env vars for now as fallback)
-            const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@mcs.com.mx';
-            const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'MCSadmin2025$';
-
-            if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-                // We still sign in to Supabase if possible to get a valid session for SSO
-                const { error: adminAuthError } = await supabase.auth.signInWithPassword({ email, password });
-                if (adminAuthError) console.warn("Admin login to Supabase Auth failed, proceeding with local admin state:", adminAuthError.message);
-
-                setCurrentUser({ email, type: 'admin' });
-                toast({ title: "Acceso autorizado", description: "Bienvenido al panel de administración" });
-                return;
-            }
-
-            // Real Supabase Auth for clients
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
@@ -53,56 +86,19 @@ export function useAuth() {
                 return;
             }
 
-            // Fetch profile data from public.users
-            const { data: user, error: profileError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', email)
-                .single();
-
-            if (profileError || !user) {
-                console.error("Profile not found in public.users:", profileError);
-                // If auth succeeded but profile missing, we handle gracefully
-                toast({
-                    title: "Acceso limitado",
-                    description: "Usuario autenticado pero sin perfil asignado",
-                    variant: "destructive"
-                });
-                return;
+            if (authData.user) {
+                const profile = await fetchProfile(authData.user.id, authData.user.email!);
+                if (profile) {
+                    setCurrentUser(profile);
+                    toast({ title: "Acceso autorizado", description: `Bienvenido ${profile.full_name || email}` });
+                } else {
+                    toast({
+                        title: "Acceso limitado",
+                        description: "Tu cuenta no tiene un perfil configurado en el sistema.",
+                        variant: "destructive"
+                    });
+                }
             }
-
-            const { data: clientData, error: clientError } = await supabase
-                .from('clients')
-                .select(`
-          name,
-          domain,
-          logo,
-          services(
-            name,
-            sub_services(name, url)
-          )
-        `)
-                .eq('name', user.client)
-                .single();
-
-            if (clientError || !clientData) {
-                toast({
-                    title: "Error de acceso",
-                    description: "No se encontró información del cliente",
-                    variant: "destructive"
-                });
-                return;
-            }
-
-            setCurrentUser({
-                email,
-                type: 'client',
-                clientName: clientData.name,
-                clientLogo: clientData.logo,
-                availableServices: clientData.services || []
-            });
-
-            toast({ title: "Acceso autorizado", description: `Bienvenido ${clientData.name}` });
         } catch (error) {
             console.error('Login error:', error);
             toast({
@@ -113,14 +109,29 @@ export function useAuth() {
         }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         setCurrentUser(null);
         setShowChangePassword(false);
         toast({ title: "Sesión cerrada", description: "Has cerrado sesión correctamente" });
     };
 
+    // Auto-restore session on refresh
+    useEffect(() => {
+        const restoreSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const profile = await fetchProfile(session.user.id, session.user.email!);
+                setCurrentUser(profile);
+            }
+            setLoading(false);
+        };
+        restoreSession();
+    }, []);
+
     return {
         currentUser,
+        loading,
         showChangePassword,
         setShowChangePassword,
         handleLogin,

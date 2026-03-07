@@ -11,11 +11,7 @@ const Index = () => {
     return <LoginForm onLogin={handleLogin} />;
   }
 
-  if (currentUser.type === 'admin') {
-    return <AdminPanel onLogout={handleLogout} />;
-  }
-
-  if (currentUser.type === 'client') {
+  if (currentUser.type === 'admin' || currentUser.type === 'client') {
     return (
       <>
         <ClientPortal
@@ -25,6 +21,7 @@ const Index = () => {
           availableServices={currentUser.availableServices!}
           onLogout={handleLogout}
           onChangePassword={() => setShowChangePassword(true)}
+          isAdmin={currentUser.type === 'admin'}
         />
         <ChangePasswordModal
           isOpen={showChangePassword}

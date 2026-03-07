@@ -48,45 +48,25 @@ export default function ChangePasswordModal({
     setIsLoading(true);
 
     try {
-      // Verify current password matches the stored hash
-      // ⚠️ SECURITY TODO: This compares plain-text passwords. Migrate to
-      // bcrypt/Argon2 hashing via a Supabase Edge Function for production use.
-      const { data: userRow, error: fetchError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', userEmail)
-        .eq('password_hash', currentPassword)
-        .single();
-
-      if (fetchError || !userRow) {
-        toast({
-          title: "Contraseña incorrecta",
-          description: "La contraseña actual no es correcta",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ password_hash: newPassword })
-        .eq('id', userRow.id);
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
 
       if (updateError) throw updateError;
 
       toast({
         title: "Contraseña actualizada",
-        description: "Tu contraseña ha sido cambiada exitosamente",
+        description: "Tu contraseña ha sido cambiada exitosamente en todo el ecosistema MCS",
       });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error changing password:', error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar la contraseña. Intenta de nuevo.",
+        description: error.message || "No se pudo actualizar la contraseña. Intenta de nuevo.",
         variant: "destructive",
       });
     } finally {
