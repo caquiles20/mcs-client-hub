@@ -49,7 +49,13 @@ export function useUsers() {
     }) => {
         setLoading(true);
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("No session found. Please login again.");
+
             const { data, error } = await supabase.functions.invoke('manage-users', {
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`
+                },
                 body: {
                     action: 'create',
                     userData: {
@@ -112,7 +118,13 @@ export function useUsers() {
     const deleteUser = async (userId: string) => {
         setLoading(true);
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("No session found. Please login again.");
+
             const { data, error } = await supabase.functions.invoke('manage-users', {
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`
+                },
                 body: {
                     action: 'delete',
                     userId
