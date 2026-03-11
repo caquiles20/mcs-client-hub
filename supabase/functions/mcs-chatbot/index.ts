@@ -152,12 +152,17 @@ async function getHaloTickets(clientName: string, statusFilter?: string, startDa
       params.open_only = "true";
     }
 
+    console.log(`Fetching tickets for client: ${clientToSearch} (ID: ${haloClientId}) with params:`, JSON.stringify(params));
     const data = await haloApiGet("Tickets", params);
     const tickets = data.tickets || data.records || data;
 
     if (!Array.isArray(tickets) || tickets.length === 0) {
-      return `No se encontraron tickets ${statusFilter || "abiertos"} para el cliente "${clientName}".`;
+      return `No se encontraron tickets ${statusFilter || "abiertos"} para el cliente "${clientToSearch}".`;
     }
+
+    console.log(`Found ${tickets.length} tickets. Sample ticket keys:`, Object.keys(tickets[0]));
+    if (tickets[0].status) console.log("Sample status:", JSON.stringify(tickets[0].status));
+    if (tickets[0].priority) console.log("Sample priority:", JSON.stringify(tickets[0].priority));
 
     const ticketList = tickets.slice(0, 15).map((t: any) => {
       const parts = [
