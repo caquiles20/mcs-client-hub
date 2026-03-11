@@ -5,17 +5,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Soy tu asistente virtual de MCS. Mi tono es profesional y eficiente.
+const getSystemPrompt = (clientName: string, userDomain: string, services: any[] = []) => {
+  const isAdmin = userDomain === "mcs.com.mx";
+  const servicesList = services.map(s => `- ${s.name}: ${s.description || 'Consulta disponible'}`).join("\n");
 
-PROPÓSITO: Soporte técnico, NOC y Halo ITSM.
+  return `Soy el Asistente Técnico de MCS. Mi objetivo es ayudar a clientes y administradores con información sobre nuestros servicios, proyectos y soporte técnico.
 
-REGLAS DE BÚSQUEDA DE TICKETS:
-1. SIEMPRE usa la herramienta buscar_tickets_halo para consultas de tickets.
-2. CÁLCULO DE FECHAS: Usa "FECHA HOY" para calcular los rangos. "Mes pasado" = mes anterior completo.
-3. ESTADO Y PRIORIDAD: Ya están disponibles en la herramienta.
-4. ADMIN MCS: Si eres @mcs.com.mx, puedes buscar cualquier cliente por nombre usando client_name.
+CONOCIMIENTO DE MCS:
+- Somos expertos en soluciones de TI, redes, seguridad y NOC.
+- Ofrecemos servicios de Cisco, Fortinet, Microsoft, entre otros.
+- Tenemos una sección de "Reportes de Servicio" y "Gestión de Recursos".
 
-Responde siempre en español. No pidas fechas, calcúlas tú.`;
+SERVICIOS DISPONIBLES PARA EL USUARIO ACTUAL (${clientName}):
+${servicesList || "Información general de soporte."}
+
+REGLAS DE HALO ITSM (SOPORTE):
+1. Para buscar tickets (abiertos, cerrados o de meses pasados), USA SIEMPRE 'buscar_tickets_halo'.
+2. CALCULAR FECHAS: "Mes pasado" se refiere al mes calendario anterior completo. Usa la "FECHA HOY" proporcionada.
+3. ${isAdmin ? "Eres ADMINISTRADOR: Puedes buscar tickets de CUALQUIER empresa usando el parámetro 'client_name'." : "Eres CLIENTE: Solo buscas tus propios tickets."}
+
+TONO: Profesional, servicial y experto. Si te preguntan algo fuera de Halo (como Cisco o servicios), responde usando tu conocimiento general y el contexto de MCS. No te limites solo a tickets.`;
+};
 
 let haloTokenCache: { token: string; expiresAt: number } | null = null;
 
@@ -49,20 +59,21 @@ async function haloApiGet(path: string, params?: Record<string, string>): Promis
 
 async function getHaloTickets(clientName: string, statusFilter?: string, startDate?: string, endDate?: string, isMCSAdmin: boolean = false, targetClientName?: string): Promise<string> {
   try {
-    const clientToSearch = (isMCSAdmin && targetClientName) ? targetClientName : clientName;
+    const queryName = (isMCSAdmin && targetClientName) ? targetClientName : clientName;
+    console.log(`Halo Search: ${queryName}`);
     
-    // Robust client search
-    console.log(`Searching for client: ${clientToSearch}`);
-    const clientData = await haloApiGet("Client", { search: clientToSearch, count: "5" });
-    const clients = clientData.clients || clientData.records || clientData;
+    // Search with more flexibility
+    const clientData = await haloApiGet("Client", { search: queryName });
+    const clients = clientData.clients || clientData.records || clientData || [];
     
     if (!Array.isArray(clients) || clients.length === 0) {
-      return `No pude encontrar la empresa "${clientToSearch}" en Halo ITSM. Por favor verifica el nombre.`;
+      return `Lo siento, no pude encontrar ninguna empresa bajo el nombre "${queryName}" en Halo ITSM.`;
     }
     
-    // Try to find exact match or use first
-    const client = clients.find((c: any) => c.name?.toLowerCase() === clientToSearch.toLowerCase()) || clients[0];
+    // Select best match
+    const client = clients.find((c: any) => c.name?.toLowerCase().includes(queryName.toLowerCase())) || clients[0];
     const haloClientId = client.id;
+    const finalClientName = client.name || queryName;
 
     const params: Record<string, string> = {
       client_id: String(haloClientId),
@@ -77,15 +88,15 @@ async function getHaloTickets(clientName: string, statusFilter?: string, startDa
     if (statusFilter === "abiertos") params.open_only = "true";
     else if (statusFilter === "cerrados") params.open_only = "false";
 
-    console.log(`Halo Query for ${clientToSearch} (ID: ${haloClientId}):`, JSON.stringify(params));
+    console.log(`Halo Querying Tickets for ID ${haloClientId} (${finalClientName})`);
     const data = await haloApiGet("Tickets", params);
-    const tickets = data.tickets || data.records || data;
+    const tickets = data.tickets || data.records || data || [];
 
-    if (!Array.isArray(tickets) || tickets.length === 0) {
-      return `No se encontraron tickets para "${clientToSearch}" en el periodo solicitado (${startDate || "inicio"} al ${endDate || "hoy"}).`;
+    if (tickets.length === 0) {
+      return `No se encontraron tickets registrados para **${finalClientName}** entre el ${startDate || 'inicio'} y el ${endDate || 'hoy'}.`;
     }
 
-    const list = tickets.slice(0, 15).map((t: any) => {
+    const list = tickets.slice(0, 20).map((t: any) => {
       const s = t.status_name || t.status?.name || "N/A";
       const p = t.priority_name || t.priority?.name || "N/A";
       const date = t.datecreated || t.dateoccurred || "";
@@ -94,13 +105,10 @@ async function getHaloTickets(clientName: string, statusFilter?: string, startDa
       return `- **Ticket #${t.id}**: ${t.summary || "Sin asunto"}\n  • Estado: ${s} | Prioridad: ${p} | Fecha: ${fDate}`;
     });
 
-    const total = data.record_count || tickets.length;
-    let res = `Se encontraron **${total}** tickets para **${clientToSearch}** en el periodo solicitado:\n\n${list.join("\n")}`;
-    if (total > 15) res += `\n\n_(Mostrando los 15 más recientes de ${total})_`;
-    return res;
+    return `Se encontraron **${data.record_count || tickets.length}** tickets para **${finalClientName}** en el periodo solicitado:\n\n${list.join("\n")}${data.record_count > 20 ? `\n\n_(Mostrando 20 de ${data.record_count})_` : ""}`;
   } catch (e) {
-    console.error("Halo Error:", e);
-    return `Error al consultar Halo ITSM: ${e.message}`;
+    console.error("Halo Error Detail:", e);
+    return `Error técnico al conectar con Halo: ${e.message}`;
   }
 }
 
@@ -108,14 +116,14 @@ const tools = [{
   type: "function",
   function: {
     name: "buscar_tickets_halo",
-    description: "Busca tickets filtrando por empresa y fecha. Obligatorio usar start_date y end_date.",
+    description: "Busca tickets por empresa y rango de fechas. Usa el formato YYYY-MM-DD.",
     parameters: {
       type: "object",
       properties: {
         status_filter: { type: "string", enum: ["abiertos", "cerrados", "todos"] },
-        client_name: { type: "string", description: "Empresa (solo admins)." },
-        start_date: { type: "string", description: "Fecha inicio (YYYY-MM-DD)." },
-        end_date: { type: "string", description: "Fecha fin (YYYY-MM-DD)." }
+        client_name: { type: "string", description: "Nombre de la empresa a buscar." },
+        start_date: { type: "string" },
+        end_date: { type: "string" }
       },
       required: ["start_date", "end_date"]
     }
@@ -125,15 +133,21 @@ const tools = [{
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { messages, userDomain, clientName } = await req.json();
+    const { messages, userDomain, clientName, availableServices } = await req.json();
     const API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const now = new Date();
-    const prompt = SYSTEM_PROMPT + `\n\nFECHA HOY: ${now.toISOString().split('T')[0]}\nUsuario: ${clientName} (${userDomain}).`;
+    const systemPrompt = getSystemPrompt(clientName, userDomain, availableServices) + `\n\nFECHA HOY: ${now.toISOString().split('T')[0]}`;
+
+    const config = {
+      model: "google/gemini-2.0-flash",
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      tools
+    };
 
     const firstResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: [{ role: "system", content: prompt }, ...messages], tools })
+      body: JSON.stringify(config)
     });
 
     const firstData = await firstResp.json();
@@ -149,12 +163,12 @@ serve(async (req) => {
       const secondResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: [{ role: "system", content: prompt }, ...messages, message, ...results], stream: true })
+        body: JSON.stringify({ ...config, messages: [...config.messages, message, ...results], stream: true })
       });
       return new Response(secondResp.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    const content = message?.content || "Lo siento, no pude procesar tu solicitud.";
+    const content = message?.content || "No pude procesar tu solicitud adecuadamente.";
     const encoder = new TextEncoder();
     return new Response(new ReadableStream({
       start(c) {
