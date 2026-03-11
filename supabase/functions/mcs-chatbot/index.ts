@@ -7,259 +7,149 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `Soy tu asistente virtual de MCS. Mi tono es profesional y eficiente.
 
-PROPÓSITO: Ayudar con soporte técnico, NOC y tickets de Halo ITSM.
+PROPÓSITO: Soporte técnico, NOC y Halo ITSM.
 
 REGLAS DE BÚSQUEDA DE TICKETS:
-1. ANTE CUALQUIER CONSULTA DE TICKETS, USA LA HERRAMIENTA buscar_tickets_halo.
-2. CÁLCULO DE FECHAS (CRÍTICO): Usa "FECHA HOY" (abajo) para calcular los rangos.
-   - "Mes pasado": Si hoy es Marzo, el rango es del 1 de febrero al último día de febrero.
-   - Proporciona las fechas en formato YYYY-MM-DD.
-3. ESTADO Y PRIORIDAD: Ahora se incluyen detalles extendidos en la herramienta. No digas que no tienes acceso.
-4. ADMIN MCS: Si tu dominio es mcs.com.mx, usa client_name para buscar en cualquier empresa.
+1. SIEMPRE usa la herramienta buscar_tickets_halo para consultas de tickets.
+2. CÁLCULO DE FECHAS: Usa "FECHA HOY" para calcular los rangos. "Mes pasado" = mes anterior completo.
+3. ESTADO Y PRIORIDAD: Ya están disponibles en la herramienta.
+4. ADMIN MCS: Si eres @mcs.com.mx, puedes buscar cualquier cliente por nombre.
 
-Responde siempre en español.`;
+Responde siempre en español. No pidas fechas, calcúlas tú.`;
 
 // ── Halo ITSM helpers ──
 
 let haloTokenCache: { token: string; expiresAt: number } | null = null;
 
 async function getHaloToken(): Promise<string> {
-  if (haloTokenCache && Date.now() < haloTokenCache.expiresAt - 60_000) {
-    return haloTokenCache.token;
-  }
-
+  if (haloTokenCache && Date.now() < haloTokenCache.expiresAt - 60_000) return haloTokenCache.token;
   const haloUrl = Deno.env.get("HALO_ITSM_URL");
   const clientId = Deno.env.get("HALO_ITSM_CLIENT_ID");
   const clientSecret = Deno.env.get("HALO_ITSM_CLIENT_SECRET");
-
-  if (!haloUrl || !clientId || !clientSecret) {
-    throw new Error("Halo ITSM credentials not configured");
-  }
+  if (!haloUrl || !clientId || !clientSecret) throw new Error("Halo credentials missing");
 
   const tokenUrl = `${haloUrl.replace(/\/$/, "")}/auth/token`;
-
   const resp = await fetch(tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: clientId,
-      client_secret: clientSecret,
-      scope: "all",
-    }),
+    body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret, scope: "all" }),
   });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    console.error("Halo token error:", resp.status, errText);
-    throw new Error(`Failed to get Halo token: ${resp.status}`);
-  }
-
+  if (!resp.ok) throw new Error(`Token error: ${resp.status}`);
   const data = await resp.json();
-  haloTokenCache = {
-    token: data.access_token,
-    expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
-  };
+  haloTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 };
   return haloTokenCache.token;
 }
 
 async function haloApiGet(path: string, params?: Record<string, string>): Promise<any> {
   const haloUrl = Deno.env.get("HALO_ITSM_URL")!.replace(/\/$/, "");
   const token = await getHaloToken();
-
   const url = new URL(`${haloUrl}/api/${path}`);
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  }
-
-  const resp = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    console.error(`Halo API error (${path}):`, resp.status, errText);
-    throw new Error(`Halo API error: ${resp.status}`);
-  }
-
+  if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const resp = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+  if (!resp.ok) throw new Error(`API error: ${resp.status}`);
   return resp.json();
-}
-
-async function findHaloClientByName(clientName: string): Promise<number | null> {
-  try {
-    const data = await haloApiGet("Client", { search: clientName, count: "5" });
-    const clients = data.clients || data.records || data;
-    if (Array.isArray(clients) && clients.length > 0) return clients[0].id;
-    return null;
-  } catch (e) {
-    console.error("Error finding Halo client:", e);
-    return null;
-  }
 }
 
 async function getHaloTickets(clientName: string, statusFilter?: string, startDate?: string, endDate?: string, isMCSAdmin: boolean = false, targetClientName?: string): Promise<string> {
   try {
     const clientToSearch = (isMCSAdmin && targetClientName) ? targetClientName : clientName;
-    const haloClientId = await findHaloClientByName(clientToSearch);
+    const clientData = await haloApiGet("Client", { search: clientToSearch, count: "1" });
+    const clients = clientData.clients || clientData.records || clientData;
+    if (!Array.isArray(clients) || clients.length === 0) return `No se encontró el cliente "${clientToSearch}".`;
     
-    if (!haloClientId) return `No se encontró el cliente "${clientToSearch}".`;
-
+    const haloClientId = clients[0].id;
     const params: Record<string, string> = {
       client_id: String(haloClientId),
-      pageinate: "true",
-      page_size: "30",
-      page_no: "1",
-      order: "datecreated",
-      orderdesc: "true",
-      // IMPORTANT: Halo date filtering often uses these params
-      datesearch: "datecreated",
+      pageinate: "true", page_size: "20", page_no: "1",
+      order: "datecreated", orderdesc: "true",
+      datesearch: "datecreated"
     };
 
     if (startDate) params.startdate = `${startDate}T00:00:00.000Z`;
     if (endDate) params.enddate = `${endDate}T23:59:59.999Z`;
+    if (statusFilter === "open" || statusFilter === "abiertos") params.open_only = "true";
+    if (statusFilter === "cerrados") params.open_only = "false";
 
-    if (statusFilter === "open" || statusFilter === "abiertos") {
-      params.open_only = "true";
-    } else if (statusFilter === "cerrados") {
-      params.open_only = "false";
-    } 
-
-    console.log(`Final Halo Params for ${clientToSearch}:`, JSON.stringify(params));
+    console.log(`Halo API Request: ${clientToSearch}`, JSON.stringify(params));
     const data = await haloApiGet("Tickets", params);
     const tickets = data.tickets || data.records || data;
 
-    if (!Array.isArray(tickets) || tickets.length === 0) {
-      return `No se encontraron tickets para "${clientToSearch}" en el periodo ${startDate || "inicial"} - ${endDate || "hoy"}.`;
-    }
+    if (!Array.isArray(tickets) || tickets.length === 0) return `No se hallaron tickets para "${clientToSearch}" en ese rango.`;
 
-    const ticketList = tickets.slice(0, 15).map((t: any) => {
-      // Halo often returns status and priority as objects OR as _name suffix fields
-      const status = t.status_name || t.status?.name || "N/A";
-      const priority = t.priority_name || t.priority?.name || "N/A";
-      const agent = t.agent_name || t.agent?.name || "No asignado";
-      const dateRaw = t.datecreated || t.dateoccurred || "";
-      let date = "N/A";
-      if (dateRaw) {
-        try { date = new Date(dateRaw).toLocaleDateString("es-MX"); } catch (_) {}
-      }
-
-      return `- **Ticket #${t.id}**: ${t.summary || t.details || "Sin asunto"}
-  • Estado: ${status}
-  • Prioridad: ${priority}
-  • Asignado: ${agent}
-  • Fecha: ${date}`;
+    const list = tickets.slice(0, 15).map((t: any) => {
+      const s = t.status_name || t.status?.name || "N/A";
+      const p = t.priority_name || t.priority?.name || "N/A";
+      const dRaw = t.datecreated || t.dateoccurred || "";
+      let d = "N/A";
+      if (dRaw) try { d = new Date(dRaw).toLocaleDateString("es-MX"); } catch (_) {}
+      return `- **Ticket #${t.id}**: ${t.summary || "Sin asunto"}\n  • Estado: ${s} | Prioridad: ${p} | Fecha: ${d}`;
     });
 
-    const total = data.record_count || tickets.length;
-    let result = `Se encontraron **${total}** ticket(s) para "${clientToSearch}" del ${startDate || "periodo solicitado"}:\n\n${ticketList.join("\n\n")}`;
-    if (total > 15) result += `\n\n_(Mostrando los 15 más recientes de ${total})_`;
-
-    return result;
+    return `Tickets para "${clientToSearch}" (${startDate || "inicio"} - ${endDate || "hoy"}):\n\n${list.join("\n")}`;
   } catch (e) {
-    console.error("Halo calculation error:", e);
-    return `Error al consultar Halo: ${e instanceof Error ? e.message : "Error desconocido"}.`;
+    return `Error en búsqueda: ${e.message}`;
   }
 }
 
-const tools = [
-  {
-    type: "function",
-    function: {
-      name: "buscar_tickets_halo",
-      description: "Busca tickets en la plataforma Halo ITSM.",
-      parameters: {
-        type: "object",
-        properties: {
-          status_filter: { type: "string", enum: ["abiertos", "cerrados", "todos"] },
-          client_name: { type: "string", description: "Empresa a buscar (solo MCS Admin)." },
-          start_date: { type: "string", description: "Fecha inicio YYYY-MM-DD." },
-          end_date: { type: "string", description: "Fecha fin YYYY-MM-DD." },
-        },
-        required: ["start_date", "end_date"], // Force providing dates
-        additionalProperties: false,
-      },
-    },
-  },
-];
-
-async function processToolCalls(toolCalls: any[], clientName: string): Promise<any[]> {
-  const results = [];
-  for (const toolCall of toolCalls) {
-    const fn = toolCall.function;
-    const args = JSON.parse(fn.arguments || "{}");
-    const isMCSAdmin = clientName === "MCS" || (clientName && clientName.toUpperCase().includes("MCS"));
-    
-    let result = "";
-    if (fn.name === "buscar_tickets_halo") {
-      result = await getHaloTickets(clientName, args.status_filter, args.start_date, args.end_date, isMCSAdmin, args.client_name);
-    } else {
-      result = `Tool ${fn.name} not found.`;
+const tools = [{
+  type: "function",
+  function: {
+    name: "buscar_tickets_halo",
+    description: "Consulta tickets. Ejemplo: start_date='2026-02-01', end_date='2026-02-28'.",
+    parameters: {
+      type: "object",
+      properties: {
+        status_filter: { type: "string" },
+        client_name: { type: "string" },
+        start_date: { type: "string" },
+        end_date: { type: "string" }
+      }
     }
-
-    results.push({ role: "tool", tool_call_id: toolCall.id, content: result });
   }
-  return results;
-}
+}];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
   try {
-    const { messages, userDomain, clientName, availableServices } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
+    const { messages, userDomain, clientName } = await req.json();
+    const API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const now = new Date();
-    const isMCSUser = userDomain === "mcs.com.mx";
-    
-    const personalizedPrompt = SYSTEM_PROMPT 
-      + `\n\nFECHA HOY: ${now.toLocaleDateString("es-MX")} (ISO: ${now.toISOString().split('T')[0]})`
-      + `\nUsuario: ${clientName || "Invitado"} (${userDomain}).`
-      + (isMCSUser ? "\nADMIN: Puedes buscar cualquier cliente." : "")
-      + (availableServices?.length > 0 ? "\nServicios: " + availableServices.map((s:any) => s.name).join(", ") : "");
+    const prompt = SYSTEM_PROMPT + `\n\nFECHA HOY: ${now.toISOString().split('T')[0]}\nUsuario: ${clientName} (${userDomain}).`;
 
-    const firstResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const first = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "system", content: personalizedPrompt }, ...messages],
-        tools,
-        stream: false,
-      }),
+      headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: [{ role: "system", content: prompt }, ...messages], tools })
     });
 
-    const firstData = await firstResp.json();
-    const choice = firstData.choices?.[0];
+    const data = await first.json();
+    const toolCalls = data.choices?.[0]?.message?.tool_calls;
 
-    if (choice?.message?.tool_calls?.length > 0) {
-      const toolResults = await processToolCalls(choice.message.tool_calls, clientName || "");
-      const secondResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    if (toolCalls?.length > 0) {
+      const results = [];
+      for (const tc of toolCalls) {
+        const args = JSON.parse(tc.function.arguments || "{}");
+        const res = await getHaloTickets(clientName, args.status_filter, args.start_date, args.end_date, userDomain === "mcs.com.mx", args.client_name);
+        results.push({ role: "tool", tool_call_id: tc.id, content: res });
+      }
+      const second = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [{ role: "system", content: personalizedPrompt }, ...messages, choice.message, ...toolResults],
-          stream: true,
-        }),
+        headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: [{ role: "system", content: prompt }, ...messages, data.choices[0].message, ...results], stream: true })
       });
-      return new Response(secondResp.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+      return new Response(second.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    const content = choice?.message?.content || "";
+    const content = data.choices?.[0]?.message?.content || "";
     const encoder = new TextEncoder();
-    const stream = new ReadableStream({
+    return new Response(new ReadableStream({
       start(c) {
         c.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content }, finish_reason: "stop" }] })}\n\n`));
         c.enqueue(encoder.encode("data: [DONE]\n\n"));
         c.close();
       }
-    });
-    return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
-
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
+    }), { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
   }
 });
