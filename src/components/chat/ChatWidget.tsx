@@ -245,7 +245,7 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
                   </div>
                   <h4 className="text-foreground font-bold mb-2 text-xl">¡Hola! Soy tu Asistente MCS</h4>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Soy tu asistente técnico de MCS. Puedo ayudarte con dudas de partners, proyectos y tickets del NOC.
+                    Puedo ayudarte con información sobre MCS y los servicios que ofrecemos, información pública de nuestros principales socios de negocio, y de nuestro NOC (tickets de servicio - asociados a su empresa).
                   </p>
                 </div>
               ) : (
@@ -267,7 +267,7 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
           <ChatInput
             onSend={streamChat}
             isLoading={isLoading}
-            placeholder="¿En qué puedo apoyarte hoy?"
+            placeholder="Pregunta sobre servicios NOC..."
           />
         </>
       )}
