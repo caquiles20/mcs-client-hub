@@ -132,6 +132,55 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
     }
   }, [userDomain, clientName, availableServices, toast]);
 
+  const [dimensions, setDimensions] = useState({ width: 384, height: 550 });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ x: number, y: number, w: number, h: number } | null>(null);
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      w: dimensions.width,
+      h: dimensions.height
+    };
+  };
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+    resizeRef.current = null;
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (!isResizing || !resizeRef.current) return;
+
+    const deltaX = resizeRef.current.x - e.clientX;
+    const deltaY = resizeRef.current.y - e.clientY;
+
+    const newWidth = Math.max(320, resizeRef.current.w + deltaX);
+    const newHeight = Math.max(400, resizeRef.current.h + deltaY);
+
+    setDimensions({
+      width: newWidth,
+      height: newHeight
+    });
+  }, [isResizing]);
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    } else {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
+
   if (!isOpen) {
     return (
       <Button
@@ -176,9 +225,18 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
 
   return (
     <Card 
-      className={`fixed bottom-6 right-6 bg-card/95 backdrop-blur-md border-mcs-blue/30 shadow-2xl z-[9999] flex flex-col transition-all duration-300 overflow-hidden ${isMinimized ? 'h-14 w-96' : 'h-[550px] w-96 min-w-[320px] min-h-[400px]'}`}
-      style={!isMinimized ? { resize: 'both' } : {}}
+      className={`fixed bottom-6 right-6 bg-card/95 backdrop-blur-md border-mcs-blue/30 shadow-2xl z-[9999] flex flex-col transition-all duration-300 overflow-hidden ${isResizing ? 'transition-none select-none' : ''} ${isMinimized ? 'h-14 w-96' : ''}`}
+      style={!isMinimized ? { width: dimensions.width, height: dimensions.height } : {}}
     >
+      {!isMinimized && (
+        <div 
+          className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-[10000] hover:bg-mcs-cyan/10 transition-colors"
+          onMouseDown={startResizing}
+          title="Redimensionar"
+        >
+          <div className="absolute top-1 left-1 w-2 h-2 border-t-2 border-l-2 border-mcs-cyan/40" />
+        </div>
+      )}
       <div className="flex items-center justify-between p-4 border-b border-mcs-blue/30 bg-gradient-secondary/30 rounded-t-lg">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-full border border-mcs-blue/30 overflow-hidden bg-white/10 flex items-center justify-center p-1">
