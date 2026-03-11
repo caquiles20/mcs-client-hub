@@ -12,12 +12,16 @@ serve(async (req) => {
     }
 
     try {
+        const url = Deno.env.get("SUPABASE_URL") ?? "";
+        console.log("Supabase URL in Function:", url.substring(0, 15) + "...");
+        
+        const authHeader = req.headers.get("Authorization")!;
         const supabaseClient = createClient(
-            Deno.env.get("SUPABASE_URL") ?? "",
+            url,
             Deno.env.get("SUPABASE_ANON_KEY") ?? "",
             {
                 global: {
-                    headers: { Authorization: req.headers.get("Authorization")! },
+                    headers: { Authorization: authHeader },
                 },
             }
         );
@@ -28,8 +32,29 @@ serve(async (req) => {
             error: authError,
         } = await supabaseClient.auth.getUser();
 
-        if (authError || !requester) {
-            throw new Error("Unauthorized");
+        if (authError) {
+            console.error("Auth error details:", JSON.stringify(authError));
+            return new Response(JSON.stringify({ 
+                error: "Invalid token", 
+                details: authError.message,
+                hint: "Ensure you are logged in to the correct Supabase project"
+            }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 401,
+            });
+        }
+        
+        if (!requester) {
+            // This case means no authError, but no user was returned (e.g., token is valid but for no user)
+            // This should ideally be caught by authError, but as a fallback.
+            return new Response(JSON.stringify({ 
+                error: "Unauthorized", 
+                details: "No user found for the provided token.",
+                hint: "Ensure the token corresponds to an active user."
+            }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 401,
+            });
         }
 
         // 2. Check if requester is an admin

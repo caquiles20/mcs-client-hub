@@ -263,7 +263,7 @@ serve(async (req) => {
       ...messages,
     ];
 
-    console.log("Calling AI gateway with model gemini-1.5-flash...");
+    console.log("Calling AI gateway with model gemini-2.5-flash...");
     // First call: let the model decide if it needs tools
     const firstResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -272,7 +272,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-1.5-flash",
+        model: "google/gemini-2.5-flash",
         messages: allMessages,
         tools,
         stream: false, // First call non-streaming to check for tool calls
@@ -324,7 +324,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-1.5-flash",
+          model: "google/gemini-2.5-flash",
           messages: secondMessages,
           stream: true,
         }),
@@ -353,7 +353,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-1.5-flash",
+        model: "google/gemini-2.5-flash",
         messages: allMessages,
         stream: true,
       }),
