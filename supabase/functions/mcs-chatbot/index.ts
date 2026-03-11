@@ -289,13 +289,23 @@ serve(async (req) => {
       "\nCuando el usuario pregunte por estos servicios (especialmente Implementaciones o Gestión de Recursos), proporciónale los nombres y enlaces directos que aparecen arriba."
       : "";
 
+    const now = new Date();
+    const currentDateStr = now.toLocaleDateString("es-MX", { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
     const isMCSUser = userDomain === "mcs.com.mx";
 
     const personalizedSystemPrompt = SYSTEM_PROMPT
+      + `\n\nFECHA ACTUAL: ${currentDateStr} (ISO: ${now.toISOString().split('T')[0]})`
       + `\n\nEl usuario actual pertenece a: ${clientName || "Cliente MCS"} (dominio: ${userDomain || "N/A"}).`
       + (isMCSUser ? "\nTIENES PERMISOS DE ADMINISTRADOR MCS: Puedes buscar tickets de cualquier empresa usando 'client_name'." : "")
       + servicesContext
-      + `\nCuando uses la herramienta buscar_tickets_halo, los tickets se filtrarán automáticamente para "${clientName || "Cliente MCS"}" A MENOS que seas administrador de MCS y especifiques otro 'client_name'.`;
+      + `\nCuando uses la herramienta buscar_tickets_halo, los tickets se filtrarán automáticamente para "${clientName || "Cliente MCS"}" A MENOS que seas administrador de MCS y especifiques otro 'client_name'.`
+      + `\n\nIMPORTANTE: Si el usuario pide "el mes pasado", calcula el rango desde el primer día hasta el último del mes anterior a HOY (${currentDateStr}).`;
 
     const allMessages = [
       { role: "system", content: personalizedSystemPrompt },
