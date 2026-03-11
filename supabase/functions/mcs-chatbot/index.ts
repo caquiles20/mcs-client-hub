@@ -25,6 +25,11 @@ Si me solicitas información que no esté contenida en las páginas de fabricant
 
 Cuando el usuario pregunte sobre tickets, incidencias, solicitudes o cualquier tema relacionado con soporte, SIEMPRE usa la herramienta buscar_tickets_halo para consultar datos reales. No inventes datos de tickets.
 
+REGLAS PARA BUSCAR TICKETS:
+1. Por defecto, busca tickets abiertos.
+2. Si el usuario pide tickets de una fecha o periodo (ej: "mes pasado", "enero"), calcula las fechas ISO (YYYY-MM-DD) y pásalas a 'start_date' y 'end_date'.
+3. SI EL USUARIO ES DE MCS (@mcs.com.mx), puede buscar tickets de CUALQUIER cliente indicando el nombre en 'client_name'. Si no es de MCS, el parámetro 'client_name' se ignora y se usa su propia empresa.
+
 Responde siempre en español de forma clara, concisa y profesional.`;
 
 // ── Halo ITSM helpers ──
@@ -115,11 +120,14 @@ async function findHaloClientByName(clientName: string): Promise<number | null> 
   }
 }
 
-async function getHaloTickets(clientName: string, statusFilter?: string): Promise<string> {
+async function getHaloTickets(clientName: string, statusFilter?: string, startDate?: string, endDate?: string, isMCSAdmin: boolean = false, targetClientName?: string): Promise<string> {
   try {
-    const haloClientId = await findHaloClientByName(clientName);
+    // If it's an MCS admin and a target client is provided, search for THAT client instead of the user's default
+    const clientToSearch = (isMCSAdmin && targetClientName) ? targetClientName : clientName;
+    
+    const haloClientId = await findHaloClientByName(clientToSearch);
     if (!haloClientId) {
-      return `No se encontró un cliente con el nombre "${clientName}" en Halo ITSM. Verifica que el nombre del cliente esté registrado correctamente en Halo.`;
+      return `No se encontró un cliente con el nombre "${clientToSearch}" en Halo ITSM. Verifica que el nombre esté escrito según aparece en el sistema.`;
     }
 
     const params: Record<string, string> = {
@@ -130,6 +138,14 @@ async function getHaloTickets(clientName: string, statusFilter?: string): Promis
       order: "datecreated",
       orderdesc: "true",
     };
+
+    // Filter by date if provided
+    if (startDate) {
+      params.dateoccurredafter = startDate;
+    }
+    if (endDate) {
+      params.dateoccurredbefore = endDate;
+    }
 
     // Filter by open status if requested or by default
     if (!statusFilter || statusFilter === "open" || statusFilter === "abiertos") {
@@ -189,6 +205,18 @@ const tools = [
             enum: ["abiertos", "cerrados", "todos"],
             description: "Filtro de estado de los tickets. Por defecto 'abiertos'.",
           },
+          client_name: {
+            type: "string",
+            description: "Nombre de la empresa o cliente a buscar. SOLO USAR SI EL USUARIO ES DE MCS Y PIDE EXPLÍCITAMENTE OTRA EMPRESA.",
+          },
+          start_date: {
+            type: "string",
+            description: "Fecha de inicio en formato ISO (YYYY-MM-DD).",
+          },
+          end_date: {
+            type: "string",
+            description: "Fecha de fin en formato ISO (YYYY-MM-DD).",
+          },
         },
         required: [],
         additionalProperties: false,
@@ -211,7 +239,15 @@ async function processToolCalls(
 
     if (fn.name === "buscar_tickets_halo") {
       const args = JSON.parse(fn.arguments || "{}");
-      result = await getHaloTickets(clientName, args.status_filter);
+      const isMCSAdmin = clientName === "MCS" || (clientName && clientName.toUpperCase().includes("MCS"));
+      result = await getHaloTickets(
+        clientName, 
+        args.status_filter, 
+        args.start_date, 
+        args.end_date, 
+        isMCSAdmin, 
+        args.client_name
+      );
     } else {
       result = `Herramienta desconocida: ${fn.name}`;
     }
@@ -253,10 +289,13 @@ serve(async (req) => {
       "\nCuando el usuario pregunte por estos servicios (especialmente Implementaciones o Gestión de Recursos), proporciónale los nombres y enlaces directos que aparecen arriba."
       : "";
 
+    const isMCSUser = userDomain === "mcs.com.mx";
+
     const personalizedSystemPrompt = SYSTEM_PROMPT
       + `\n\nEl usuario actual pertenece a: ${clientName || "Cliente MCS"} (dominio: ${userDomain || "N/A"}).`
+      + (isMCSUser ? "\nTIENES PERMISOS DE ADMINISTRADOR MCS: Puedes buscar tickets de cualquier empresa usando 'client_name'." : "")
       + servicesContext
-      + `\nCuando uses la herramienta buscar_tickets_halo, los tickets se filtrarán automáticamente para "${clientName || "Cliente MCS"}".`;
+      + `\nCuando uses la herramienta buscar_tickets_halo, los tickets se filtrarán automáticamente para "${clientName || "Cliente MCS"}" A MENOS que seas administrador de MCS y especifiques otro 'client_name'.`;
 
     const allMessages = [
       { role: "system", content: personalizedSystemPrompt },
