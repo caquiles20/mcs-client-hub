@@ -7,37 +7,23 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `Soy tu asistente virtual de MCS. Mi tono es profesional y eficiente.
 
-Mi propósito es ayudarte con información relacionada a:
-- Servicios y soporte técnico de MCS Network Solution
-- Información de fabricantes autorizados: Cisco, HPE/Aruba Central, Fortinet, Panduit, y CommScope
-- Consultas sobre tu infraestructura de red y servicios NOC
-- Consultas sobre tickets abiertos en Halo ITSM asociados a tu empresa
+PROPÓSITO: Ayudar con soporte técnico, NOC y tickets de Halo ITSM.
 
-Fuentes autorizadas de información:
-- https://www.cisco.com/
-- https://www.hpe.com/es/es/aruba-central.html
-- https://www.fortinet.com/lat
-- https://www.panduit.com/latam/es.html
-- https://www.commscope.com/
-- https://mcs.com.mx/
+REGLAS DE BÚSQUEDA DE TICKETS:
+1. ANTE CUALQUIER CONSULTA DE TICKETS, USA LA HERRAMIENTA buscar_tickets_halo.
+2. CÁLCULO DE FECHAS (CRÍTICO): Usa "FECHA HOY" (abajo) para calcular los rangos.
+   - "Mes pasado": Si hoy es Marzo, el rango es del 1 de febrero al último día de febrero.
+   - Proporciona las fechas en formato YYYY-MM-DD.
+3. ESTADO Y PRIORIDAD: Ahora se incluyen detalles extendidos en la herramienta. No digas que no tienes acceso.
+4. ADMIN MCS: Si tu dominio es mcs.com.mx, usa client_name para buscar en cualquier empresa.
 
-Si me solicitas información que no esté contenida en las páginas de fabricantes o de MCS listadas anteriormente, y no se trata de tickets o información de Halo ITSM, te responderé: "La información solicitada está fuera del alcance de las páginas o herramientas a las que tengo acceso."
-
-Cuando el usuario pregunte sobre tickets, incidencias, solicitudes o cualquier tema relacionado con soporte, SIEMPRE usa la herramienta buscar_tickets_halo para consultar datos reales. No inventes datos de tickets.
-
-REGLAS PARA BUSCAR TICKETS:
-1. Por defecto, busca tickets abiertos.
-2. Si el usuario pide tickets de una fecha o periodo (ej: "mes pasado", "enero"), calcula las fechas ISO (YYYY-MM-DD) y pásalas a 'start_date' y 'end_date'.
-3. SI EL USUARIO ES DE MCS (@mcs.com.mx), puede buscar tickets de CUALQUIER cliente indicando el nombre en 'client_name'. Si no es de MCS, el parámetro 'client_name' se ignora y se usa su propia empresa.
-
-Responde siempre en español de forma clara, concisa y profesional.`;
+Responde siempre en español.`;
 
 // ── Halo ITSM helpers ──
 
 let haloTokenCache: { token: string; expiresAt: number } | null = null;
 
 async function getHaloToken(): Promise<string> {
-  // Return cached token if still valid (with 60s buffer)
   if (haloTokenCache && Date.now() < haloTokenCache.expiresAt - 60_000) {
     return haloTokenCache.token;
   }
@@ -104,15 +90,9 @@ async function haloApiGet(path: string, params?: Record<string, string>): Promis
 
 async function findHaloClientByName(clientName: string): Promise<number | null> {
   try {
-    const data = await haloApiGet("Client", {
-      search: clientName,
-      count: "5",
-    });
-
+    const data = await haloApiGet("Client", { search: clientName, count: "5" });
     const clients = data.clients || data.records || data;
-    if (Array.isArray(clients) && clients.length > 0) {
-      return clients[0].id;
-    }
+    if (Array.isArray(clients) && clients.length > 0) return clients[0].id;
     return null;
   } catch (e) {
     console.error("Error finding Halo client:", e);
@@ -122,313 +102,164 @@ async function findHaloClientByName(clientName: string): Promise<number | null> 
 
 async function getHaloTickets(clientName: string, statusFilter?: string, startDate?: string, endDate?: string, isMCSAdmin: boolean = false, targetClientName?: string): Promise<string> {
   try {
-    // If it's an MCS admin and a target client is provided, search for THAT client instead of the user's default
     const clientToSearch = (isMCSAdmin && targetClientName) ? targetClientName : clientName;
-    
     const haloClientId = await findHaloClientByName(clientToSearch);
-    if (!haloClientId) {
-      return `No se encontró un cliente con el nombre "${clientToSearch}" en Halo ITSM. Verifica que el nombre esté escrito según aparece en el sistema.`;
-    }
+    
+    if (!haloClientId) return `No se encontró el cliente "${clientToSearch}".`;
 
     const params: Record<string, string> = {
       client_id: String(haloClientId),
       pageinate: "true",
-      page_size: "25",
+      page_size: "30",
       page_no: "1",
       order: "datecreated",
       orderdesc: "true",
+      // IMPORTANT: Halo date filtering often uses these params
+      datesearch: "datecreated",
     };
 
-    // Filter by date if provided
-    if (startDate) {
-      params.dateoccurredafter = startDate;
-    }
-    if (endDate) {
-      params.dateoccurredbefore = endDate;
-    }
+    if (startDate) params.startdate = `${startDate}T00:00:00.000Z`;
+    if (endDate) params.enddate = `${endDate}T23:59:59.999Z`;
 
-    // Filter by open status if requested or by default
-    if (!statusFilter || statusFilter === "open" || statusFilter === "abiertos") {
+    if (statusFilter === "open" || statusFilter === "abiertos") {
       params.open_only = "true";
-    }
+    } else if (statusFilter === "cerrados") {
+      params.open_only = "false";
+    } 
 
-    console.log(`Fetching tickets for client: ${clientToSearch} (ID: ${haloClientId}) with params:`, JSON.stringify(params));
+    console.log(`Final Halo Params for ${clientToSearch}:`, JSON.stringify(params));
     const data = await haloApiGet("Tickets", params);
     const tickets = data.tickets || data.records || data;
 
     if (!Array.isArray(tickets) || tickets.length === 0) {
-      return `No se encontraron tickets ${statusFilter || "abiertos"} para el cliente "${clientToSearch}".`;
+      return `No se encontraron tickets para "${clientToSearch}" en el periodo ${startDate || "inicial"} - ${endDate || "hoy"}.`;
     }
 
-    console.log(`Found ${tickets.length} tickets. Sample ticket keys:`, Object.keys(tickets[0]));
-    if (tickets[0].status) console.log("Sample status:", JSON.stringify(tickets[0].status));
-    if (tickets[0].priority) console.log("Sample priority:", JSON.stringify(tickets[0].priority));
-
     const ticketList = tickets.slice(0, 15).map((t: any) => {
-      const parts = [
-        `- **Ticket #${t.id}**: ${t.summary || t.details || "Sin asunto"}`,
-        `  Estado: ${t.status?.name || t.status_name || "N/A"}`,
-        `  Prioridad: ${t.priority?.name || t.priority_name || "N/A"}`,
-      ];
-      if (t.agent?.name || t.agent_name) {
-        parts.push(`  Asignado a: ${t.agent?.name || t.agent_name}`);
+      // Halo often returns status and priority as objects OR as _name suffix fields
+      const status = t.status_name || t.status?.name || "N/A";
+      const priority = t.priority_name || t.priority?.name || "N/A";
+      const agent = t.agent_name || t.agent?.name || "No asignado";
+      const dateRaw = t.datecreated || t.dateoccurred || "";
+      let date = "N/A";
+      if (dateRaw) {
+        try { date = new Date(dateRaw).toLocaleDateString("es-MX"); } catch (_) {}
       }
-      if (t.dateoccurred || t.datecreated) {
-        const date = new Date(t.dateoccurred || t.datecreated);
-        parts.push(`  Fecha: ${date.toLocaleDateString("es-MX")}`);
-      }
-      return parts.join("\n");
+
+      return `- **Ticket #${t.id}**: ${t.summary || t.details || "Sin asunto"}
+  • Estado: ${status}
+  • Prioridad: ${priority}
+  • Asignado: ${agent}
+  • Fecha: ${date}`;
     });
 
     const total = data.record_count || tickets.length;
-    let result = `Se encontraron **${total}** ticket(s) ${statusFilter || "abiertos"} para "${clientName}":\n\n${ticketList.join("\n\n")}`;
-
-    if (total > 15) {
-      result += `\n\n_(Mostrando los 15 más recientes de ${total} totales)_`;
-    }
+    let result = `Se encontraron **${total}** ticket(s) para "${clientToSearch}" del ${startDate || "periodo solicitado"}:\n\n${ticketList.join("\n\n")}`;
+    if (total > 15) result += `\n\n_(Mostrando los 15 más recientes de ${total})_`;
 
     return result;
   } catch (e) {
-    console.error("Error fetching Halo tickets:", e);
-    return `Error al consultar tickets en Halo ITSM: ${e instanceof Error ? e.message : "Error desconocido"}. Intenta de nuevo más tarde.`;
+    console.error("Halo calculation error:", e);
+    return `Error al consultar Halo: ${e instanceof Error ? e.message : "Error desconocido"}.`;
   }
 }
-
-// ── Tool definitions for the AI model ──
 
 const tools = [
   {
     type: "function",
     function: {
       name: "buscar_tickets_halo",
-      description: "Busca tickets del cliente en Halo ITSM. Usa esta herramienta cuando el usuario pregunte sobre tickets, incidencias, solicitudes de soporte, o estado de sus servicios.",
+      description: "Busca tickets en la plataforma Halo ITSM.",
       parameters: {
         type: "object",
         properties: {
-          status_filter: {
-            type: "string",
-            enum: ["abiertos", "cerrados", "todos"],
-            description: "Filtro de estado de los tickets. Por defecto 'abiertos'.",
-          },
-          client_name: {
-            type: "string",
-            description: "Nombre de la empresa o cliente a buscar. SOLO USAR SI EL USUARIO ES DE MCS Y PIDE EXPLÍCITAMENTE OTRA EMPRESA.",
-          },
-          start_date: {
-            type: "string",
-            description: "Fecha de inicio en formato ISO (YYYY-MM-DD).",
-          },
-          end_date: {
-            type: "string",
-            description: "Fecha de fin en formato ISO (YYYY-MM-DD).",
-          },
+          status_filter: { type: "string", enum: ["abiertos", "cerrados", "todos"] },
+          client_name: { type: "string", description: "Empresa a buscar (solo MCS Admin)." },
+          start_date: { type: "string", description: "Fecha inicio YYYY-MM-DD." },
+          end_date: { type: "string", description: "Fecha fin YYYY-MM-DD." },
         },
-        required: [],
+        required: ["start_date", "end_date"], // Force providing dates
         additionalProperties: false,
       },
     },
   },
 ];
 
-// ── Process tool calls from the AI ──
-
-async function processToolCalls(
-  toolCalls: any[],
-  clientName: string,
-): Promise<{ role: string; tool_call_id: string; content: string }[]> {
+async function processToolCalls(toolCalls: any[], clientName: string): Promise<any[]> {
   const results = [];
-
   for (const toolCall of toolCalls) {
     const fn = toolCall.function;
+    const args = JSON.parse(fn.arguments || "{}");
+    const isMCSAdmin = clientName === "MCS" || (clientName && clientName.toUpperCase().includes("MCS"));
+    
     let result = "";
-
     if (fn.name === "buscar_tickets_halo") {
-      const args = JSON.parse(fn.arguments || "{}");
-      const isMCSAdmin = clientName === "MCS" || (clientName && clientName.toUpperCase().includes("MCS"));
-      result = await getHaloTickets(
-        clientName, 
-        args.status_filter, 
-        args.start_date, 
-        args.end_date, 
-        isMCSAdmin, 
-        args.client_name
-      );
+      result = await getHaloTickets(clientName, args.status_filter, args.start_date, args.end_date, isMCSAdmin, args.client_name);
     } else {
-      result = `Herramienta desconocida: ${fn.name}`;
+      result = `Tool ${fn.name} not found.`;
     }
 
-    results.push({
-      role: "tool",
-      tool_call_id: toolCall.id,
-      content: result,
-    });
+    results.push({ role: "tool", tool_call_id: toolCall.id, content: result });
   }
-
   return results;
 }
 
-// ── Main handler ──
-
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const rawBody = await req.text();
-    console.log("Raw body received:", rawBody);
-    const { messages, userDomain, clientName, availableServices } = JSON.parse(rawBody);
-
+    const { messages, userDomain, clientName, availableServices } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("Missing LOVABLE_API_KEY");
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    const servicesContext = availableServices && availableServices.length > 0
-      ? "\n\nEl usuario tiene acceso a los siguientes servicios y herramientas específicas en su portal:\n" +
-      availableServices.map((s: any) => {
-        const subLinkStr = s.sub_services?.map((ss: any) => ss.name + " (" + ss.url + ")").join(", ") || "Sin links configurados";
-        return "- **" + s.name + "**: " + subLinkStr;
-      }).join("\n") +
-      "\nCuando el usuario pregunte por estos servicios (especialmente Implementaciones o Gestión de Recursos), proporciónale los nombres y enlaces directos que aparecen arriba."
-      : "";
 
     const now = new Date();
-    const currentDateStr = now.toLocaleDateString("es-MX", { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-
     const isMCSUser = userDomain === "mcs.com.mx";
+    
+    const personalizedPrompt = SYSTEM_PROMPT 
+      + `\n\nFECHA HOY: ${now.toLocaleDateString("es-MX")} (ISO: ${now.toISOString().split('T')[0]})`
+      + `\nUsuario: ${clientName || "Invitado"} (${userDomain}).`
+      + (isMCSUser ? "\nADMIN: Puedes buscar cualquier cliente." : "")
+      + (availableServices?.length > 0 ? "\nServicios: " + availableServices.map((s:any) => s.name).join(", ") : "");
 
-    const personalizedSystemPrompt = SYSTEM_PROMPT
-      + `\n\nFECHA ACTUAL: ${currentDateStr} (ISO: ${now.toISOString().split('T')[0]})`
-      + `\n\nEl usuario actual pertenece a: ${clientName || "Cliente MCS"} (dominio: ${userDomain || "N/A"}).`
-      + (isMCSUser ? "\nTIENES PERMISOS DE ADMINISTRADOR MCS: Puedes buscar tickets de cualquier empresa usando 'client_name'." : "")
-      + servicesContext
-      + `\nCuando uses la herramienta buscar_tickets_halo, los tickets se filtrarán automáticamente para "${clientName || "Cliente MCS"}" A MENOS que seas administrador de MCS y especifiques otro 'client_name'.`
-      + `\n\nIMPORTANTE: Si el usuario pide "el mes pasado", calcula el rango desde el primer día hasta el último del mes anterior a HOY (${currentDateStr}).`;
-
-    const allMessages = [
-      { role: "system", content: personalizedSystemPrompt },
-      ...messages,
-    ];
-
-    console.log("Calling AI gateway with model gemini-2.5-flash...");
-    // First call: let the model decide if it needs tools
-    const firstResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const firstResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: allMessages,
+        messages: [{ role: "system", content: personalizedPrompt }, ...messages],
         tools,
-        stream: false, // First call non-streaming to check for tool calls
+        stream: false,
       }),
     });
 
-    if (!firstResponse.ok) {
-      if (firstResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Límite de solicitudes excedido. Por favor, intenta de nuevo más tarde." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (firstResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Se requiere agregar créditos para continuar usando el asistente." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await firstResponse.text();
-      console.error("AI gateway error:", firstResponse.status, errorText);
-      return new Response(JSON.stringify({ error: "Error en el servicio de IA" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const firstData = await firstResponse.json();
+    const firstData = await firstResp.json();
     const choice = firstData.choices?.[0];
 
-    // Check if the model wants to call tools
-    if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
-      console.log("Tool calls requested:", JSON.stringify(choice.message.tool_calls.map((tc: any) => tc.function.name)));
-
-      // Execute tools
+    if (choice?.message?.tool_calls?.length > 0) {
       const toolResults = await processToolCalls(choice.message.tool_calls, clientName || "");
-
-      // Second call: send tool results back, now streaming the final answer
-      const secondMessages = [
-        ...allMessages,
-        choice.message, // assistant message with tool_calls
-        ...toolResults,
-      ];
-
-      const secondResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const secondResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
-          messages: secondMessages,
+          messages: [{ role: "system", content: personalizedPrompt }, ...messages, choice.message, ...toolResults],
           stream: true,
         }),
       });
-
-      if (!secondResponse.ok) {
-        const errorText = await secondResponse.text();
-        console.error("AI gateway second call error:", secondResponse.status, errorText);
-        return new Response(JSON.stringify({ error: "Error en el servicio de IA" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(secondResponse.body, {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-      });
+      return new Response(secondResp.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    // No tool calls: return the content we already have from the first call
-    // We simulate a stream to satisfy the frontend's expectation of text/event-stream
     const content = choice?.message?.content || "";
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
-      start(controller) {
-        // Wrap the content in the same format the AI gateway uses
-        const chunk = {
-          choices: [
-            {
-              delta: { content },
-              finish_reason: "stop"
-            }
-          ]
-        };
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-      },
+      start(c) {
+        c.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content }, finish_reason: "stop" }] })}\n\n`));
+        c.enqueue(encoder.encode("data: [DONE]\n\n"));
+        c.close();
+      }
     });
+    return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
 
-    return new Response(stream, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
   } catch (error) {
-    console.error("Chatbot error:", error);
-    return new Response(JSON.stringify({
-      error: error instanceof Error ? error.message : "Error desconocido"
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
 });
