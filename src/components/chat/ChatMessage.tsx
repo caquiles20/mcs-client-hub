@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { Bot, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import robotAvatar from '@/assets/robot-avatar.png';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -19,11 +20,11 @@ export default function ChatMessage({ role, content, isStreaming }: ChatMessageP
       <div className={cn(
         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
         isAssistant 
-          ? "bg-gradient-secondary" 
+          ? "bg-white border border-mcs-blue/20" 
           : "bg-mcs-blue/30"
       )}>
         {isAssistant ? (
-          <Bot className="w-4 h-4 text-white" />
+          <img src={robotAvatar} alt="Bot" className="w-full h-full object-contain p-0.5" />
         ) : (
           <User className="w-4 h-4 text-mcs-cyan" />
         )}

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, Minimize2, MessageCircle } from 'lucide-react';
+import { X, Minimize2, MessageCircle, Trash2 } from 'lucide-react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { useToast } from '@/hooks/use-toast';
@@ -175,7 +175,10 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
   }
 
   return (
-    <Card className={`fixed bottom-6 right-6 w-96 bg-card/95 backdrop-blur-md border-mcs-blue/30 shadow-2xl z-[9999] flex flex-col transition-all duration-300 ${isMinimized ? 'h-14' : 'h-[550px]'}`}>
+    <Card 
+      className={`fixed bottom-6 right-6 bg-card/95 backdrop-blur-md border-mcs-blue/30 shadow-2xl z-[9999] flex flex-col transition-all duration-300 overflow-hidden ${isMinimized ? 'h-14 w-96' : 'h-[550px] w-96 min-w-[320px] min-h-[400px]'}`}
+      style={!isMinimized ? { resize: 'both' } : {}}
+    >
       <div className="flex items-center justify-between p-4 border-b border-mcs-blue/30 bg-gradient-secondary/30 rounded-t-lg">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-full border border-mcs-blue/30 overflow-hidden bg-white/10 flex items-center justify-center p-1">
@@ -188,6 +191,21 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
         </div>
 
         <div className="flex items-center gap-1">
+          {messages.length > 0 && !isMinimized && (
+            <Button
+              onClick={() => {
+                if (window.confirm("¿Seguro que quieres limpiar la conversación?")) {
+                  setMessages([]);
+                }
+              }}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+              title="Limpiar chat"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
           <a
             href={NOC_WHATSAPP_URL}
             target="_blank"
@@ -221,11 +239,11 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
           <ScrollArea className="flex-1" ref={scrollRef}>
             <div className="min-h-full">
               {messages.length === 0 ? (
-                <div className="p-8 text-center">
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-secondary/20 flex items-center justify-center">
-                    <MessageCircle className="w-10 h-10 text-mcs-teal shadow-glow" />
+                <div className="p-8 text-center flex flex-col items-center justify-center min-h-[300px]">
+                  <div className="w-24 h-24 mb-6 rounded-full bg-white shadow-lg border border-mcs-blue/20 overflow-hidden flex items-center justify-center p-1">
+                    <img src={robotAvatarWithCache} alt="MCS AI" className="w-full h-full object-contain" />
                   </div>
-                  <h4 className="text-foreground font-bold mb-2 text-lg">¡Bienvenido!</h4>
+                  <h4 className="text-foreground font-bold mb-2 text-xl">¡Hola! Soy tu Asistente MCS</h4>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     Soy tu asistente técnico de MCS. Puedo ayudarte con dudas de partners, proyectos y tickets del NOC.
                   </p>
