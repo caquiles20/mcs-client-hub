@@ -344,31 +344,28 @@ serve(async (req) => {
       });
     }
 
-    // No tool calls: stream the first response directly
-    // Since first call was non-streaming, re-call with streaming
-    const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+    // No tool calls: return the content we already have from the first call
+    // We simulate a stream to satisfy the frontend's expectation of text/event-stream
+    const content = choice?.message?.content || "";
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        // Wrap the content in the same format the AI gateway uses
+        const chunk = {
+          choices: [
+            {
+              delta: { content },
+              finish_reason: "stop"
+            }
+          ]
+        };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: allMessages,
-        stream: true,
-      }),
     });
 
-    if (!streamResponse.ok) {
-      const errorText = await streamResponse.text();
-      console.error("AI gateway stream error:", streamResponse.status, errorText);
-      return new Response(JSON.stringify({ error: "Error en el servicio de IA" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(streamResponse.body, {
+    return new Response(stream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {
