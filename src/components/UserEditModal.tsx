@@ -86,6 +86,16 @@ export function UserEditModal({ user, onSave, onClose }: UserEditModalProps) {
             />
           </div>
           <div>
+            <Label htmlFor="editArea">Área / Departamento</Label>
+            <Input
+              id="editArea"
+              value={editedUser.area || ''}
+              onChange={(e) => setEditedUser({ ...editedUser, area: e.target.value })}
+              className="bg-background/50"
+              placeholder="Ej. Sistemas, Contabilidad"
+            />
+          </div>
+          <div>
             <Label htmlFor="editStatus">Estado de Acceso</Label>
             <Select
               value={editedUser.is_active ? 'active' : 'inactive'}

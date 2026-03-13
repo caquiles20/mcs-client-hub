@@ -16,7 +16,7 @@ import type { Database } from '@/integrations/supabase/types';
 type User = UserProfile;
 
 export function UserManagement() {
-  const [newUser, setNewUser] = useState({ email: '', password: '', fullName: '', role: 'visualizador' as ProfileRole, clientName: '' });
+  const [newUser, setNewUser] = useState({ email: '', password: '', fullName: '', role: 'visualizador' as ProfileRole, clientName: '', area: '' });
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const { users, loading, addUser: addUserDB, updateUser: updateUserDB, deleteUser: deleteUserDB } = useUsers();
   const { toast } = useToast();
@@ -31,9 +31,10 @@ export function UserManagement() {
         password: newUser.password || undefined,
         full_name: newUser.fullName,
         role: newUser.role,
-        client_name: newUser.clientName || null
+        client_name: newUser.clientName || null,
+        area: newUser.area || null
       });
-      setNewUser({ email: '', password: '', fullName: '', role: 'visualizador', clientName: '' });
+      setNewUser({ email: '', password: '', fullName: '', role: 'visualizador', clientName: '', area: '' });
     } catch (error) {
       // Error handled in hook
     }
@@ -130,6 +131,16 @@ export function UserManagement() {
               />
             </div>
             <div className="space-y-1">
+              <Label htmlFor="userArea">Área / Departamento</Label>
+              <Input
+                id="userArea"
+                value={newUser.area}
+                onChange={(e) => setNewUser({ ...newUser, area: e.target.value })}
+                placeholder="Ej. Sistemas, Contabilidad"
+                className="bg-background/50 h-9"
+              />
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="tempPassword">Contraseña Temporal (Opcional)</Label>
               <Input
                 id="tempPassword"
@@ -172,9 +183,16 @@ export function UserManagement() {
                   <div>
                     <p className="font-medium text-foreground">{user.full_name || 'Sin nombre'}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
-                    <Badge variant="outline" className="mt-1 text-[10px] uppercase font-bold text-mcs-blue border-mcs-blue/30">
-                      {user.role}
-                    </Badge>
+                    <div className="flex flex-col space-y-1 mt-1">
+                      <Badge variant="outline" className="w-fit text-[10px] uppercase font-bold text-mcs-blue border-mcs-blue/30">
+                        {user.role}
+                      </Badge>
+                      {user.area && (
+                        <Badge variant="outline" className="w-fit text-[10px] uppercase font-bold text-mcs-teal border-mcs-teal/30">
+                          Área: {user.area}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge

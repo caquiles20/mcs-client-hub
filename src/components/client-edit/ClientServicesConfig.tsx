@@ -17,6 +17,7 @@ interface ClientServicesConfigProps {
     onUpdateSubService: (subServiceId: number, field: 'name' | 'url', value: string) => void;
     onRemoveSubService: (subServiceId: number) => void;
     onRemoveService: (serviceId: number) => void;
+    onUpdateService: (serviceId: number, updates: Partial<Service>) => void;
 }
 
 export function ClientServicesConfig({
@@ -27,6 +28,7 @@ export function ClientServicesConfig({
     onUpdateSubService,
     onRemoveSubService,
     onRemoveService,
+    onUpdateService,
 }: ClientServicesConfigProps) {
     return (
         <div className="space-y-4">
@@ -38,7 +40,22 @@ export function ClientServicesConfig({
                 <Card key={service.id} className="bg-background/30 border-mcs-blue/20">
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
-                            <CardTitle className="text-base text-mcs-blue">{service.name}</CardTitle>
+                            <div className="space-y-1 flex-1 mr-4">
+                                <CardTitle className="text-base text-mcs-blue">{service.name}</CardTitle>
+                                <div className="max-w-xs">
+                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold">Áreas Permitidas (sep. por coma)</Label>
+                                    <Input
+                                        defaultValue={service.allowed_areas?.join(', ') || ''}
+                                        onBlur={(e) => {
+                                            const val = e.target.value.trim();
+                                            const areas = val ? val.split(',').map(a => a.trim()).filter(a => a !== '') : null;
+                                            onUpdateService(service.id, { allowed_areas: areas });
+                                        }}
+                                        placeholder="Global (vacío)"
+                                        className="bg-background/50 text-[11px] h-7 px-2"
+                                    />
+                                </div>
+                            </div>
                             <div className="flex space-x-2">
                                 <Button
                                     size="sm"

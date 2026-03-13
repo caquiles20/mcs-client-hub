@@ -11,6 +11,7 @@ export interface UserProfile {
     role: ProfileRole;
     client_name: string | null;
     is_active: boolean;
+    area: string | null;
     created_at: string;
 }
 
@@ -45,7 +46,8 @@ export function useUsers() {
         password?: string;
         full_name: string;
         role: ProfileRole;
-        client_name: string | null
+        client_name: string | null;
+        area: string | null;
     }) => {
         setLoading(true);
         try {

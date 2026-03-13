@@ -16,6 +16,7 @@ interface AuthUser {
     full_name?: string | null;
     clientName?: string;
     clientLogo?: string;
+    area?: string | null;
     availableServices?: ServiceWithSubServices[];
 }
 
@@ -49,11 +50,20 @@ export function useAuth() {
                     logo,
                     services(
                         name,
+                        allowed_areas,
                         sub_services(name, url)
                     )
                 `)
                 .eq('name', targetClientName)
                 .single();
+
+            // Filter services based on area if user is not an admin
+            const filteredServices = (clientData?.services || []).filter((service: any) => {
+                if (profile.role === 'admin') return true;
+                if (!service.allowed_areas || service.allowed_areas.length === 0) return true;
+                if (!profile.area) return false;
+                return service.allowed_areas.includes(profile.area);
+            });
 
             return {
                 id: userId,
@@ -62,7 +72,8 @@ export function useAuth() {
                 full_name: profile.full_name,
                 clientName: clientData?.name || profile.client_name || (profile.role === 'admin' ? 'MCS' : 'MCS Client'),
                 clientLogo: clientData?.logo,
-                availableServices: clientData?.services || []
+                area: profile.area,
+                availableServices: filteredServices
             };
         } catch (err) {
             console.error("Error fetching profile:", err);

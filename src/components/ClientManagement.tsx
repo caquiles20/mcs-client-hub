@@ -182,7 +182,9 @@ export function ClientManagement() {
                   <div className="flex flex-wrap gap-2">
                     {client.services?.map((service) => (
                       <Badge key={service.id} variant="secondary" className="bg-mcs-blue/20 text-mcs-blue">
-                        {service.name} ({service.sub_services?.length || 0} subservicios)
+                        {service.name} 
+                        {service.allowed_areas && service.allowed_areas.length > 0 && ` [${service.allowed_areas.join(', ')}]`}
+                        {` (${service.sub_services?.length || 0} sub)`}
                       </Badge>
                     )) || <span className="text-muted-foreground text-sm">No hay servicios configurados</span>}
                   </div>

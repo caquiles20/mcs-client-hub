@@ -25,7 +25,7 @@ interface ClientEditModalProps {
 export function ClientEditModal({ client, availableServiceNames, onSave, onClose }: ClientEditModalProps) {
   const [editedClient, setEditedClient] = useState<Client>(client);
   const [localSubServiceValues, setLocalSubServiceValues] = useState<Record<number, { name: string; url: string }>>({});
-  const { clients, addService, deleteService, addSubService, updateSubService, deleteSubService } = useClients();
+  const { clients, addService, updateService, deleteService, addSubService, updateSubService, deleteSubService } = useClients();
 
   const initLocalSubServiceValues = useCallback((clientData: Client) => {
     const values: Record<number, { name: string; url: string }> = {};
@@ -175,6 +175,7 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
             onUpdateSubService={handleUpdateSubService}
             onRemoveSubService={handleRemoveSubService}
             onRemoveService={handleRemoveService}
+            onUpdateService={updateService}
           />
 
           <div className="flex space-x-2 pt-4 border-t border-mcs-blue/20">
