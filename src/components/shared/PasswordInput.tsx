@@ -13,11 +13,12 @@ interface PasswordInputProps {
     minLength?: number;
     placeholder?: string;
     className?: string;
+    leftIcon?: React.ReactNode;
 }
 
 /**
  * Password input with show/hide toggle.
- * Replaces the 3 identical patterns in ChangePasswordModal.
+ * Enhanced with optional left icon support and improved hit area.
  */
 export function PasswordInput({
     id,
@@ -28,6 +29,7 @@ export function PasswordInput({
     minLength,
     placeholder = '••••••••',
     className = '',
+    leftIcon,
 }: PasswordInputProps) {
     const [show, setShow] = useState(false);
 
@@ -35,12 +37,17 @@ export function PasswordInput({
         <div className={`space-y-2 ${className}`}>
             <Label htmlFor={id}>{label}</Label>
             <div className="relative">
+                {leftIcon && (
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10">
+                        {leftIcon}
+                    </div>
+                )}
                 <Input
                     id={id}
                     type={show ? 'text' : 'password'}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
-                    className="bg-background/50 border-mcs-blue/30 focus:border-mcs-blue pr-10"
+                    className={`bg-background/50 border-mcs-blue/30 focus:border-mcs-blue pr-10 ${leftIcon ? 'pl-10' : ''}`}
                     placeholder={placeholder}
                     required={required}
                     minLength={minLength}
@@ -48,15 +55,15 @@ export function PasswordInput({
                 <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full w-10 hover:bg-transparent text-muted-foreground hover:text-foreground z-20"
                     onClick={() => setShow(prev => !prev)}
                     aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                     {show ? (
-                        <EyeOff className="w-4 h-4 text-muted-foreground" />
+                        <EyeOff className="w-4 h-4" />
                     ) : (
-                        <Eye className="w-4 h-4 text-muted-foreground" />
+                        <Eye className="w-4 h-4" />
                     )}
                 </Button>
             </div>

@@ -179,13 +179,23 @@ export function ClientManagement() {
                       </Button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col gap-3">
                     {client.services?.map((service) => (
-                      <Badge key={service.id} variant="secondary" className="bg-mcs-blue/20 text-mcs-blue">
-                        {service.name} 
-                        {service.allowed_areas && service.allowed_areas.length > 0 && ` [${service.allowed_areas.join(', ')}]`}
-                        {` (${service.sub_services?.length || 0} sub)`}
-                      </Badge>
+                      <div key={service.id} className="space-y-1">
+                        <Badge variant="secondary" className="bg-mcs-blue/20 text-mcs-blue w-fit rounded-sm">
+                          {service.name} ({service.sub_services?.length || 0} sub)
+                        </Badge>
+                        {service.sub_services && service.sub_services.length > 0 && (
+                          <div className="flex flex-wrap gap-1 ml-3 border-l-2 border-mcs-blue/10 pl-2">
+                            {service.sub_services.map(sub => (
+                              <Badge key={sub.id} variant="outline" className="text-[10px] font-normal text-muted-foreground bg-background/50 rounded-sm">
+                                {sub.name}
+                                {sub.allowed_areas && sub.allowed_areas.length > 0 && <span className="ml-1 text-mcs-teal font-semibold">[{sub.allowed_areas.join(', ')}]</span>}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )) || <span className="text-muted-foreground text-sm">No hay servicios configurados</span>}
                   </div>
                 </div>

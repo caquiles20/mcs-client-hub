@@ -76,7 +76,7 @@ export function ClientEditModal({ client, availableServiceNames, onSave, onClose
     }
   };
 
-  const handleUpdateSubService = async (subServiceId: number, field: 'name' | 'url', value: string) => {
+  const handleUpdateSubService = async (subServiceId: number, field: 'name' | 'url' | 'allowed_areas', value: any) => {
     try {
       await updateSubService(subServiceId, { [field]: value });
     } catch (error) {

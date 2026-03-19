@@ -6,7 +6,7 @@ type UserType = 'guest' | 'admin' | 'client';
 
 interface ServiceWithSubServices {
     name: string;
-    sub_services?: { name: string; url: string }[];
+    sub_services?: { name: string; url: string; allowed_areas?: string[] | null }[];
 }
 
 interface AuthUser {
@@ -51,18 +51,29 @@ export function useAuth() {
                     services(
                         name,
                         allowed_areas,
-                        sub_services(name, url)
+                        sub_services(name, url, allowed_areas)
                     )
                 `)
                 .eq('name', targetClientName)
                 .single();
 
-            // Filter services based on area if user is not an admin
-            const filteredServices = (clientData?.services || []).filter((service: any) => {
+            // Filter sub-services based on area if user is not an admin
+            const filteredServices = (clientData?.services || []).map((service: any) => {
+                if (profile.role === 'admin') return service;
+                
+                const filteredSubServices = (service.sub_services || []).filter((sub: any) => {
+                    if (!sub.allowed_areas || sub.allowed_areas.length === 0) return true; // Global sub-service
+                    if (!profile.area) return false;
+                    return sub.allowed_areas.includes(profile.area);
+                });
+
+                return { ...service, sub_services: filteredSubServices };
+            }).filter(service => {
                 if (profile.role === 'admin') return true;
-                if (!service.allowed_areas || service.allowed_areas.length === 0) return true;
-                if (!profile.area) return false;
-                return service.allowed_areas.includes(profile.area);
+                // Only show services that have at least one allowed sub-service
+                // OR originally didn't have sub-services
+                const origService = clientData?.services.find((s: any) => s.name === service.name);
+                return (service.sub_services && service.sub_services.length > 0) || (origService?.sub_services?.length === 0);
             });
 
             return {

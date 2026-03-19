@@ -301,9 +301,9 @@ export default function ChatWidget({ userDomain, clientName, availableServices }
                   <div className="w-24 h-24 mb-6 rounded-full bg-white shadow-lg border border-mcs-blue/20 overflow-hidden flex items-center justify-center p-1">
                     <img src={robotAvatarWithCache} alt="MCS AI" className="w-full h-full object-contain" />
                   </div>
-                  <h4 className="text-foreground font-bold mb-2 text-xl">¡Hola! Soy tu Asistente MCS</h4>
+                  <h4 className="text-foreground font-bold mb-2 text-xl">¡Hola!</h4>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Puedo ayudarte con información sobre MCS y los servicios que ofrecemos, información pública de nuestros principales socios de negocio, y de nuestro NOC (tickets de servicio - asociados a su empresa).
+                    Soy tu asistente virtual MCS, ¿en que puedo ayudarte hoy?
                   </p>
                 </div>
               ) : (

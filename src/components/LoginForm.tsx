@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Lock, Mail } from 'lucide-react';
+import { PasswordInput } from '@/components/shared/PasswordInput';
 import nocBackground from '@/assets/noc-background.jpg';
 import mcsLogo from '/lovable-uploads/246f1c9b-df18-4ddc-b0c3-810e5a3b8738.png';
 
@@ -72,21 +73,15 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">Contraseña</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 bg-background/50 border-mcs-blue/30 focus:border-mcs-blue"
-                    required
-                  />
-                </div>
-              </div>
+              <PasswordInput
+                id="password"
+                label="Contraseña"
+                placeholder="••••••••"
+                value={password}
+                onChange={setPassword}
+                required
+                leftIcon={<Lock className="w-4 h-4" />}
+              />
 
               <Button 
                 type="submit" 

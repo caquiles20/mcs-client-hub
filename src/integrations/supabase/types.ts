@@ -111,6 +111,7 @@ export type Database = {
       }
       sub_services: {
         Row: {
+          allowed_areas: string[] | null
           created_at: string | null
           id: number
           name: string
@@ -118,6 +119,7 @@ export type Database = {
           url: string
         }
         Insert: {
+          allowed_areas?: string[] | null
           created_at?: string | null
           id?: number
           name: string
@@ -125,6 +127,7 @@ export type Database = {
           url: string
         }
         Update: {
+          allowed_areas?: string[] | null
           created_at?: string | null
           id?: number
           name?: string

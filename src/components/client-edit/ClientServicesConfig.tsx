@@ -14,7 +14,7 @@ interface ClientServicesConfigProps {
     localSubServiceValues: Record<number, { name: string; url: string }>;
     onLocalSubServiceChange: (id: number, field: 'name' | 'url', value: string) => void;
     onAddSubService: (serviceId: number) => void;
-    onUpdateSubService: (subServiceId: number, field: 'name' | 'url', value: string) => void;
+    onUpdateSubService: (subServiceId: number, field: 'name' | 'url' | 'allowed_areas', value: any) => void;
     onRemoveSubService: (subServiceId: number) => void;
     onRemoveService: (serviceId: number) => void;
     onUpdateService: (serviceId: number, updates: Partial<Service>) => void;
@@ -40,22 +40,7 @@ export function ClientServicesConfig({
                 <Card key={service.id} className="bg-background/30 border-mcs-blue/20">
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
-                            <div className="space-y-1 flex-1 mr-4">
-                                <CardTitle className="text-base text-mcs-blue">{service.name}</CardTitle>
-                                <div className="max-w-xs">
-                                    <Label className="text-[10px] text-muted-foreground uppercase font-bold">Áreas Permitidas (sep. por coma)</Label>
-                                    <Input
-                                        defaultValue={service.allowed_areas?.join(', ') || ''}
-                                        onBlur={(e) => {
-                                            const val = e.target.value.trim();
-                                            const areas = val ? val.split(',').map(a => a.trim()).filter(a => a !== '') : null;
-                                            onUpdateService(service.id, { allowed_areas: areas });
-                                        }}
-                                        placeholder="Global (vacío)"
-                                        className="bg-background/50 text-[11px] h-7 px-2"
-                                    />
-                                </div>
-                            </div>
+                            <CardTitle className="text-base text-mcs-blue flex-1">{service.name}</CardTitle>
                             <div className="flex space-x-2">
                                 <Button
                                     size="sm"
@@ -78,8 +63,8 @@ export function ClientServicesConfig({
                     </CardHeader>
                     <CardContent className="space-y-3">
                         {service.sub_services?.map((subService) => (
-                            <div key={subService.id} className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 bg-card/50 rounded border border-mcs-blue/10">
-                                <div>
+                            <div key={subService.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 p-3 bg-card/50 rounded border border-mcs-blue/10">
+                                <div className="md:col-span-4">
                                     <Label className="text-xs text-muted-foreground">Nombre del Subservicio</Label>
                                     <Input
                                         value={localSubServiceValues[subService.id]?.name ?? subService.name}
@@ -91,23 +76,36 @@ export function ClientServicesConfig({
                                             }
                                         }}
                                         placeholder="Nombre del subservicio"
-                                        className="bg-background/50 text-sm"
+                                        className="bg-background/50 text-sm h-9"
                                     />
                                 </div>
-                                <div className="flex space-x-2">
+                                <div className="md:col-span-4">
+                                    <Label className="text-xs text-muted-foreground">URL del Subservicio</Label>
+                                    <Input
+                                        value={localSubServiceValues[subService.id]?.url ?? subService.url}
+                                        onChange={(e) => onLocalSubServiceChange(subService.id, 'url', e.target.value)}
+                                        onBlur={() => {
+                                            const local = localSubServiceValues[subService.id];
+                                            if (local && local.url !== subService.url) {
+                                                onUpdateSubService(subService.id, 'url', local.url);
+                                            }
+                                        }}
+                                        placeholder="https://..."
+                                        className="bg-background/50 text-sm h-9"
+                                    />
+                                </div>
+                                <div className="md:col-span-4 flex space-x-2">
                                     <div className="flex-1">
-                                        <Label className="text-xs text-muted-foreground">URL del Subservicio</Label>
+                                        <Label className="text-[10px] text-muted-foreground uppercase font-bold">Áreas Permitidas</Label>
                                         <Input
-                                            value={localSubServiceValues[subService.id]?.url ?? subService.url}
-                                            onChange={(e) => onLocalSubServiceChange(subService.id, 'url', e.target.value)}
-                                            onBlur={() => {
-                                                const local = localSubServiceValues[subService.id];
-                                                if (local && local.url !== subService.url) {
-                                                    onUpdateSubService(subService.id, 'url', local.url);
-                                                }
+                                            defaultValue={subService.allowed_areas?.join(', ') || ''}
+                                            onBlur={(e) => {
+                                                const val = e.target.value.trim();
+                                                const areas = val ? val.split(',').map(a => a.trim()).filter(a => a !== '') : null;
+                                                onUpdateSubService(subService.id, 'allowed_areas', areas);
                                             }}
-                                            placeholder="https://..."
-                                            className="bg-background/50 text-sm"
+                                            placeholder="Global (vacío), ej: Sistemas"
+                                            className="bg-background/50 text-[11px] h-9 px-2"
                                         />
                                     </div>
                                     <div className="flex items-end">
@@ -115,6 +113,7 @@ export function ClientServicesConfig({
                                             size="sm"
                                             variant="destructive"
                                             onClick={() => onRemoveSubService(subService.id)}
+                                            className="h-9"
                                         >
                                             <X className="w-4 h-4" />
                                         </Button>
