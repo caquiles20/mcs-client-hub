@@ -59,8 +59,6 @@ async function getHaloTicketById(ticketId: string, userClientName: string, isMCS
       return `No se encontró el ticket #${ticketId} asociado a su empresa.`;
     }
 
-    // Workaround: la API REST de Halo no devuelve agent_name, status_name ni actions
-    // en GET /Tickets/{id} — se resuelven con llamadas adicionales en paralelo.
     const [actionsResp, agentResp, statusResp, tickettypeResp] = await Promise.allSettled([
       haloApiGet("Actions", { ticket_id: String(data.id), paginate: "true", page_size: "20" }),
       data.agent_id ? haloApiGet(`Agent/${data.agent_id}`) : Promise.resolve(null),
@@ -68,22 +66,18 @@ async function getHaloTicketById(ticketId: string, userClientName: string, isMCS
       data.tickettype_id ? haloApiGet(`Tickettype/${data.tickettype_id}`) : Promise.resolve(null),
     ]);
 
-    // Resolver nombre del agente
     const agentName = (agentResp.status === "fulfilled" && agentResp.value?.name)
       ? agentResp.value.name
       : (data.agent_name || "Sin asignar");
 
-    // Resolver nombre del estatus
     const statusName = (statusResp.status === "fulfilled" && statusResp.value?.name)
       ? statusResp.value.name
       : (data.status_name || `Status ID ${data.status_id}`);
 
-    // Resolver nombre del tipo de ticket
     const tickettypeName = (tickettypeResp.status === "fulfilled" && tickettypeResp.value?.name)
       ? tickettypeResp.value.name
       : (data.tickettype_name || "N/A");
 
-    // Procesar acciones: separar nota de cierre y últimas acciones relevantes
     let closingNote = "";
     let recentActionsText = "No hay acciones registradas.";
 
@@ -91,7 +85,6 @@ async function getHaloTicketById(ticketId: string, userClientName: string, isMCS
       const rawActions = actionsResp.value?.actions || actionsResp.value?.records || actionsResp.value || [];
       const actions: any[] = Array.isArray(rawActions) ? rawActions : [];
 
-      // Buscar nota de cierre: acción de tipo "Resuelto" / "Closed" escrita por humano (no Automation)
       const closingAction = actions.find((a: any) =>
         a.note &&
         a.who?.toLowerCase() !== "automation" &&
@@ -105,7 +98,6 @@ async function getHaloTicketById(ticketId: string, userClientName: string, isMCS
         closingNote = `${closingAction.note} (${dateStr} - ${closingAction.who})`;
       }
 
-      // Últimas 5 acciones humanas con nota (excluir entradas vacías y automáticas sin nota relevante)
       const humanActions = actions.filter((a: any) => a.note && a.note.trim().length > 0);
       const top5 = humanActions.slice(0, 5).map((a: any) => {
         const dateStr = (a.datecreated || a.datetime || "").split("T")[0];
@@ -161,6 +153,30 @@ async function getHaloTickets(clientName: string, startDate?: string, endDate?: 
   }
 }
 
+function prepareMessages(messages: any[]) {
+  const claudeMessages = [];
+  let lastRole = null;
+
+  for (const msg of messages) {
+    const role = msg.role === "assistant" ? "assistant" : "user";
+    const content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+
+    if (role === lastRole) {
+      const lastMsg = claudeMessages[claudeMessages.length - 1];
+      lastMsg.content += "\n" + content;
+    } else {
+      claudeMessages.push({ role, content });
+      lastRole = role;
+    }
+  }
+
+  while (claudeMessages.length > 0 && claudeMessages[0].role === "assistant") {
+    claudeMessages.shift();
+  }
+
+  return claudeMessages;
+}
+
 const claudeTools = [
   {
     name: "buscar_tickets_halo",
@@ -197,6 +213,7 @@ serve(async (req) => {
   const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
   const sendSimpleError = (msg: string) => {
+    console.error(`Edge Function Error: ${msg}`);
     return new Response(new ReadableStream({
       start(c) {
         c.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "Error: " + msg }, finish_reason: "stop" }] })}\n\n`));
@@ -207,7 +224,9 @@ serve(async (req) => {
   };
 
   try {
-    const { messages, userDomain, clientName, availableServices } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const { messages, userDomain, clientName, availableServices } = body;
+    
     if (!messages) return sendSimpleError("Cuerpo de petición vacío.");
     if (!ANTHROPIC_API_KEY) return sendSimpleError("API key no configurada.");
 
@@ -223,16 +242,11 @@ serve(async (req) => {
       "anthropic-version": "2023-06-01"
     };
 
-    // Mapear mensajes al formato de Claude (user/assistant, sin conversión de roles)
-    const claudeMessages = messages.slice(-10).map((m: any) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content
-    }));
-    // Claude requiere que el primer mensaje sea de tipo "user"
-    const firstUserIdx = claudeMessages.findIndex((m: any) => m.role === "user");
-    const safeMessages = firstUserIdx > 0 ? claudeMessages.slice(firstUserIdx) : claudeMessages;
+    const safeMessages = prepareMessages(messages.slice(-10));
+    if (safeMessages.length === 0) return sendSimpleError("No hay mensajes válidos en el historial.");
 
-    // Primera llamada: no-streaming para detectar si hay tool use
+    console.log(`Llamando a Claude (Sonnet 4.6) para: ${clientName}`);
+
     const firstResp = await fetch(ANTHROPIC_URL, {
       method: "POST",
       headers: anthropicHeaders,
@@ -246,26 +260,40 @@ serve(async (req) => {
     });
 
     const firstData = await firstResp.json();
-    if (!firstResp.ok) throw new Error(firstData.error?.message || "Claude API Error");
+    if (!firstResp.ok) {
+      console.error("Anthropic API Error:", JSON.stringify(firstData));
+      throw new Error(firstData.error?.message || "Claude API Error");
+    }
 
-    // Detectar si Claude quiere usar una herramienta
-    const toolUseBlock = firstData.content?.find((b: any) => b.type === "tool_use");
+    const toolUseBlocks = firstData.content?.filter((b: any) => b.type === "tool_use") || [];
 
-    if (firstData.stop_reason === "tool_use" && toolUseBlock) {
-      // Ejecutar la herramienta de Halo ITSM
-      let toolResult = "";
-      if (toolUseBlock.name === "consultar_ticket_por_id") {
-        toolResult = await getHaloTicketById(toolUseBlock.input.ticket_id, clientName, isMCSAdmin);
-      } else {
-        toolResult = await getHaloTickets(clientName, toolUseBlock.input.start_date, toolUseBlock.input.end_date, isMCSAdmin, toolUseBlock.input.client_name);
-      }
+    if (firstData.stop_reason === "tool_use" && toolUseBlocks.length > 0) {
+      console.log(`Ejecutando ${toolUseBlocks.length} herramientas...`);
+      
+      const toolResults = await Promise.all(toolUseBlocks.map(async (block: any) => {
+        let result = "";
+        try {
+          if (block.name === "consultar_ticket_por_id") {
+            result = await getHaloTicketById(block.input.ticket_id, clientName, isMCSAdmin);
+          } else if (block.name === "buscar_tickets_halo") {
+            result = await getHaloTickets(clientName, block.input.start_date, block.input.end_date, isMCSAdmin, block.input.client_name);
+          } else {
+            result = `Herramienta desconocida: ${block.name}`;
+          }
+        } catch (e) {
+          result = `Error ejecutando herramienta ${block.name}: ${e.message}`;
+        }
+        return {
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: result
+        };
+      }));
 
-      // Segunda llamada: streaming con el resultado de la herramienta
-      // Claude requiere incluir el bloque tool_use del assistant y el tool_result del user
       const messagesWithResult = [
         ...safeMessages,
         { role: "assistant", content: firstData.content },
-        { role: "user", content: [{ type: "tool_result", tool_use_id: toolUseBlock.id, content: toolResult }] }
+        { role: "user", content: toolResults }
       ];
 
       const streamResp = await fetch(ANTHROPIC_URL, {
@@ -280,13 +308,17 @@ serve(async (req) => {
         })
       });
 
+      let streamBuffer = "";
       const transformStream = new TransformStream({
         transform(chunk, controller) {
-          const text = decoder.decode(chunk);
-          for (const line of text.split('\n')) {
-            if (!line.startsWith('data: ')) continue;
+          streamBuffer += decoder.decode(chunk, { stream: true });
+          const lines = streamBuffer.split("\n");
+          streamBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
             const jsonStr = line.slice(6).trim();
-            if (!jsonStr || jsonStr === '[DONE]') continue;
+            if (!jsonStr || jsonStr === "[DONE]") continue;
             try {
               const d = JSON.parse(jsonStr);
               if (d.type === "content_block_delta" && d.delta?.type === "text_delta" && d.delta.text) {
@@ -307,7 +339,6 @@ serve(async (req) => {
       });
     }
 
-    // Sin tool use: emitir el texto de la primera respuesta como SSE
     const textContent = firstData.content
       ?.filter((b: any) => b.type === "text")
       .map((b: any) => b.text)
@@ -329,3 +360,4 @@ serve(async (req) => {
     return sendSimpleError(e.message);
   }
 });
+
